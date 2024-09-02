@@ -1,0 +1,2588 @@
+---
+title: "Study of a Data Set applying Supervised Learning tools"
+subtitle: "Classification & Regression"
+author: "Diego Hernández Suárez (100472809)"
+date: '03/11/2022'
+course: "Statistical Learning, Bachelor in Data Science and Engineering"
+output:
+  html_document: 
+    css: my-theme.css
+    theme: cerulean
+    highlight: tango
+    number_sections: no
+    toc: no
+    toc_depth: 1
+  pdf_document:
+    css: my-theme.css
+    theme: cerulean
+    highlight: tango
+    number_sections: yes
+    toc: yes
+    toc_depth: 1
+editor_options:
+  chunk_output_type: console
+---
+
+
+```{r global_options, include=T, echo = F}
+knitr::opts_chunk$set(echo = T, warning=FALSE, message=FALSE)
+```
+
+# Introduction to the work
+
+This homework is based on selecting an open data set (in which in my case I will show where did I obtained) in order to clean, visualize and work with it in order to reach interesting conclusions by applying supervised learning tools studied during the course. We will be able to understand and analyze deeply the data contained in the data set. We will use classification and advanced regression technics during this work, where we must focus on interpretation and prediction in order to see how good our models are by taking into consideracion aspects such as accuracy or the rsquared obtained.
+
+# Selected data set
+
+I obtained my data set from KAGGLE at the following URL: 
+https://www.kaggle.com/datasets/bryanb/fifa-player-stats-database?resource=download&select=FIFA23_official_data.csv
+
+The data set selected is about the career mode of FIFA 23, where the data set contains all the football players in FIFA 23 and their characteristics (which are the different variables that I will explain them later). I am quite interested in this data set because I am a huge fan of the FIFA saga, and when I saw that there were released the data set of the newest game of the franchise, I had no doubt.
+I also selected in the previous work about unsupervised learning tools this data set because as I said in that homework, it will be interesting to use supervised learning tools in order to have a different approach and a deeper knowledge of the data which I am studying.
+
+I consider that the volume of the data set is quite good because it has 17660 rows and 29 columns (before the pre processing) so it is a big and diverse data set, where I can modify it and work with it in different ways, and also are different types of data (characters, integers, doubles, factors or logicals), so it is a varied data set which I can work with it in creative ways. Moreover, it contains NAs values to clean the data set properly and in order to face challenges that I will face in the future.
+
+Another reason why I chose this data set is because it is not very corralated, which was a recommendation of the professor, and contains important categorical and numerical variables in order to apply classification and regression.
+
+
+It is important to mention this data is obtained from the history mode (also known as career mode inside the video game), where the prices are similar but not exactly the same as the real life.
+
+**Brief summary of each variable in the data set:**
+ID = ID in FIFA 23 of each footballer
+Name = Real name of the footballer
+Age = Age of the player
+Photo = URL which shows a picture of the footballer (in real life)
+Nationality = Country for which the player plays for
+Flag = URL which shows a picture of the flag
+Overall = Score out of 100 which the player has depending on how good it is
+Potential = Maximum overall the player can reach by playing, warm ups, etc...
+Club = Name of the club the player plays for
+Club Logo = URL with the picture of the footballer's club
+Value = Market value of the footballer
+Wage = Salary earned by the player
+Special = Score of personal characteristics of each player
+Preferred.Foot = Preferred foot of the footballer (Left/Right)
+International.Reputation = Score out of 5 of the global reputation that the footballer has
+Weak.Foot = Score out of 5 on how good is the player with the non-preferred foot
+Skill.Moves = Score out of 5 on how good is the player dribbling
+Work.Rate = The effort employed by each footballer during the matches or warm ups
+Body.Type = The physical complexion of each player.
+Real.Face = If they have recreated the face of the player inside the game or not
+Position = The position inside the pitch of the footballer
+Joined = Date when the footballer joined to their current club
+Loaned.From = Club where the footballer is loaned from in the case the fooballer is loaned
+Contract.Valid.Until = Year in which the footballer's contract ends
+Height = Height in centimeters of the footballer
+Weight = Weight in kilograms of the footballer
+Release.Clause = Price that a club must pay in order to transfer that footballer from his current team
+Kit.Number = Football number of each player
+Best.Overall.Rating = Biggest overall a player has reached during his whole career.
+
+
+# Categorical variable for classification & numerical variable for regression choosen
+
+As the homework asks, we need to choose two variables in which one of them is a categorical variable and the other one a numerical, for that reason, after analyzing my data set, I decided to discretize one variable in order to apply classification with that variable as my response variable. For regression I used the same variable but as numerical (as in the original set)
+
+I considered that my target categorical variable will be the Overall variable because I can convert it from numerical values to 3 categories that already exist in FIFA 23, which are something similar to the "quality" of the player, in which there can be bronze, silver or gold players (as it can be expected, bronze is for the worst players, silver for the average players and gold for the best ones), so I think it is a great idea to separate the players and transform this numerical variable to a categorical following the FIFA criteria. 
+It is important to mention that I will divide between this three groups as FIFA does, where bronze players are players which overall are lower than 61 are bronze type, between 61 and 69 silver players and higher than 70 are gold players. FIFA games also applies this criteria in order to have balanced groups in each one of the categories.
+
+For my target numerical variable in order to apply regression, I think the best one would be the Overall variable too, because I consider it is the most important variable in the whole data set so I think it would be better to study and see what we can predict in respect to this variable. Also I consider it is interesting how a variable that will be treated as numerical and categorical would give us different outputs and predictions.
+
+# Data Preprocessing
+
+We load some libraries (later I will load another ones, but for the data pre processing is enough)
+
+```{r}
+library(tidyverse)
+library(plyr)
+library(ggplot2)
+library(MASS)
+library(caret)
+library(e1071)
+library(skimr)
+library(mice)
+library(VIM)
+library(glmnet)
+library(rpart)
+library(pROC)
+library(class)
+library(randomForest)
+```
+
+
+
+Remove the previous records and load the data set
+
+```{r}
+rm(list=ls())
+dataset <- read.csv('FIFA23_official_data.csv')
+```
+
+We use the functions View(), summary() and str() to see visually the data set and look at his information
+
+```{r}
+View(dataset)
+summary(dataset)
+str(dataset)
+```
+
+# Reduce the size of the dataset
+
+I decided to reduce my dataset in order to be able to run all the codes during this work. However, the recommended option is to try to have the biggest data set as possible in order to obtain the most realistic results. In spite of this fact, I am forced to reduce the data set in order to be able to run it and to Knit it. 
+In this way we will still have 10575 rows to study, which is more than enough.
+
+**NOTE:** When I tried to run my code without reducing my data set, I obtained most of the times an error similar to "Cannot allocate vector of size 1.6 Gb". That is the reason to reduce the data set.
+
+In order to reduce my data set avoiding a possible bias, I will delete randomly (by for example, choosing an random number which will be the number of the row delete it) the 35% of the whole data set, so I will avoid introducing bias because it will be full randomly.
+
+In this way, my PC will be able to work with the data set efficiently and we will still keep 65% of the data set, which are still 11455 thousand rows [0.65*nrow(dataset)]  in order to apply my different supervised learning tools and its models, which I consider it is more than enough to obtain realistic and reliable results.
+
+```{r}
+
+rows = nrow(dataset)
+i <- 1
+while (i < 0.35*rows){
+  r = sample(1:nrow(dataset), 1)
+  dataset = dataset[-r,]
+  i <- i+1
+}
+nrow(dataset) 
+
+```
+
+Now we have a smaller data set which my computer can work with it. However, the recommended situation would be to do not reduce the data set, in order to have the more diverse and big input, but for technical reasons, I am forced to do it.
+
+If there are less than 5% of the total data set, we can omit all that missing data. By using the summary() function we can see the 35 NAs are in the kit number, I decided to remove all that rows because we still have a huge data set, so I can avoid missing values future problems and loosing that rows are not a problem.
+
+However, first I will plot a  histogram and a barplot in order to see visually where are the NAs and their quantity
+
+```{r}
+hist(rowMeans(is.na(dataset)))
+barplot(colMeans(is.na(dataset)), las=2)
+```
+
+We see how many NA are in the data set by using the sum() and is.na() functions so we are going to use a if statement to see if there are NAs in the data set
+
+```{r}
+if (sum(is.na(dataset)) > 0){
+  # Now, to be sure that this NAs values represent less than the 5% of the total data set
+  # we create a if statement to verify this condition
+  if (sum(is.na(dataset)/nrow(dataset)) < 0.05){
+  # We change the data set to the same data set without NAs using the na.omit function
+  # in the case there are NAs values
+    dataset <- na.omit(dataset)
+  }
+}
+```
+
+There was NAs values so the data set has been modified
+
+Let's see if there are rows duplicated and remove them in the case there are, we are going to use the unique() function and use it just it case the number of rows of the data set with unique rows are not equal to the original data set. 
+In this way it is not necessary to change again the whole data set, just in the case it is essential because there are duplicated rows.
+
+```{r}
+if (nrow(dataset) != nrow(unique(dataset))){
+  dataset = unique(dataset)
+}
+```
+
+As we can see, the condition for the if statement is not fulfilled so we can affirm there are no duplicated row
+
+We will continue by removing useless variables that either will not be used during the whole work or we are not interesting
+
+```{r}
+dataset$Flag = NULL 
+dataset$Photo = NULL
+dataset$Club.Logo = NULL
+dataset$Loaned.From = NULL
+dataset$Position = NULL
+dataset$Best.Overall.Rating = NULL
+dataset$Kit.Number = NULL
+dataset$Body.Type = NULL
+dataset$Special = NULL
+dataset$ID = NULL
+dataset$Joined = NULL
+dataset$Contract.Valid.Until = NULL
+```
+
+I am going to modify most of the columns in order to change their classes to the class that I am interested in order to study them properly.
+
+
+For the Real.Face variable I am going to change the variable, instead of "Yes" and "No", I prefer to work with them as "TRUE" or "FALSE" (just for commodity). However, in order to apply supervised learning tools, I will keep this variable as character.
+
+Because the Real.Face variable is a character variable, I will convert it into a factor by saying that if it is TRUE it means the face of the player is scanned into the video game, and if it is FALSE it means they did not scanned the face of the player into the FIFA 23.
+
+```{r}
+class(dataset$Real.Face) # Character
+```
+
+
+We are going to use a while loop to replace the "Yes" into TRUE and the "No" to FALSE (However, I am going to convert them into characters instead of boolean in order to have more categorical variables)
+
+```{r}
+i <- 1
+while (i <= nrow(dataset)){
+  if (dataset$Real.Face[i] == "Yes"){
+    # In the case it is "Yes", then it is TRUE the player has his "real" face in the game
+    dataset$Real.Face[i]<- "TRUE"
+  }
+  else{
+    # If it is not "Yes", it must be "No"
+    dataset$Real.Face[i]<- "FALSE"
+  }
+  i <- i + 1
+}
+dataset$Real.Face = as.character(dataset$Real.Face) # We finally set the whole variable as a categorical variable
+```
+
+Now we are going to change the values of the columns Value, Wage and Release.Clause in order to work with them, where I will convert them into numeric variables.
+
+Let's see which class are they right now:
+```{r}
+class(dataset$Value) # Character
+class(dataset$Wage) # Character
+class(dataset$Release.Clause) # Character
+```
+
+First of all, I need to delete the strings (the "â,¬" and the "K" or "M") of the variables in order to convert them into numeric variables, in this case, there is a "â,¬" at the beginning and a "M" or "K" at the end, so I am going to use the functions substring() to make shorter the variable, and I am going to start from the forth character of the string to delete the 3 first that are the "â,¬" for the three variables.
+
+```{r}
+dataset$Value <- substring(dataset$Value, 4)
+dataset$Wage <- substring(dataset$Wage, 4)
+dataset$Release.Clause <- substring(dataset$Release.Clause, 4)
+```
+
+For the first loop (focused on the Wage variable, as we already deleted the "â,¬", we need to take into account if the wage is paid in K or in units, so we are going to  go through the different rows to know which ones ends with a K, that rows must be multiplied by 1000 and the K at the end must be deleted. Furthermore, I am going to use the function as.numeric() to make the numeric variables so it will be easier to work with them.
+
+It is important to mention that any player earns more than 999K, so it is not necessary to create a case in which a player earns 1M or more. I will not create a case for a player that earns 1M or more because it will affect the efficiency and will require more computer resources, something that is completely unnecessary.
+Any ways, I added with # what would be the code in the case a players earn 1M or more. I also execute it and there was no difference between my current code or adding that piece of extra code.
+
+```{r}
+i <- 1
+while (i <= nrow(dataset)){
+  if (substring(dataset$Wage[i], nchar(dataset$Wage[i])) == "K"){  
+    # This statement is used to know if the wage is paid in K or in units, 
+    # that we can know this information by looking at the last character of the strings in this variable
+    # we must multiply by 10^3 and also convert it to a numeric variable.
+    dataset$Wage[i] <- 10^3 * as.numeric(substring(dataset$Wage[i], 1, nchar(dataset$Wage[i])-1))
+  }
+  #In the case we wanted to do it for a player that his wage is in millions (M)
+  # we could use the following piece of code. I already use it just to be sure
+  # the result is exactly the same, and it is verified that the data set have the
+  # exactly same changes by using this case or not because any wage is paid in M.
+  
+  #if (substring(dataset$Wage[i], nchar(dataset$Wage[i])) == "M"){
+  #dataset$Wage[i] <- 10^6 * as.numeric(substring(dataset$Wage[i], 1, nchar(dataset$Wage[i])-1))}
+  
+  else{
+    # In the case it does not end with K, we just need to convert the variable into numeric
+    dataset$Wage[i] <- as.numeric(dataset$Wage[i])
+  # We continue the loop
+  i <- i+1
+  }
+}
+# We convert the whole column into a numeric variable
+dataset$Wage = as.numeric(dataset$Wage)
+```
+
+We are going to do a similar process with the other 2 variables
+
+For the Value variable, there are three possible cases, the first is the footballer  costs 1 M or more, in where we need to multiply by 10^6. The second case is the player costs between 1 K and 999 K, in where we need to multiply by 10^3. Finally, the case where the player cost less than 1K, where we do not need to multiply by any number.  
+It is also important to convert all the variables from characters to numeric.
+```{r}
+i <- 1
+while (i <= nrow(dataset)){
+  if (substring(dataset$Value[i], nchar(dataset$Value[i])) == "M"){
+    # In the case the player cost 1M or more
+    dataset$Value[i] <- 10^6 * as.numeric(substring(dataset$Value[i], 1, nchar(dataset$Value[i]) - 1))
+    }
+  if (substring(dataset$Value[i], nchar(dataset$Value[i])) == "K"){
+    # In the case the player cost less than 1M
+    dataset$Value[i] <- 10^3 * as.numeric(substring(dataset$Value[i], 1, nchar(dataset$Value[i]) - 1))
+  }
+  else{
+    # In the case the players cost less than 1K, we just need to convert it to numeric
+    dataset$Value[i] <- as.numeric(dataset$Value[i])
+  }
+  # To continue the loop
+  i <- i + 1
+  }
+
+# We convert the whole variable to numeric
+dataset$Value = as.numeric(dataset$Value)
+```
+
+Let's do the same process for the Release.Clause variable
+
+```{r}
+i <- 1
+while (i <= nrow(dataset)){
+  if (substring(dataset$Release.Clause[i], nchar(dataset$Release.Clause[i])) == "M"){
+    # In the case the release clause cost 1M or more
+    dataset$Release.Clause[i] <- 10^6 * as.numeric(substring(dataset$Release.Clause[i], 1,
+                                                             nchar(dataset$Release.Clause[i]) - 1))
+  }
+  if (substring(dataset$Release.Clause[i], nchar(dataset$Release.Clause[i])) == "K"){
+    # In the case the release clause cost less than 1M
+    dataset$Release.Clause[i] <- 10^3 * as.numeric(substring(dataset$Release.Clause[i], 1,
+                                                             nchar(dataset$Release.Clause[i]) - 1))
+  }
+  else{
+    # In the case the release clause cost less than 1K, we just need to convert it to numeric
+    dataset$Release.Clause[i] <- as.numeric(dataset$Release.Clause[i])
+  }
+  # To continue the loop
+  i <- i + 1
+}
+```
+
+I noticed in this column that some release clauses converted from "nan" to NA, so I will change this NA values to other standard value in order to simplify the huge data set.
+
+I had been thinking about possible solutions, one possible solution was to assign the value infinite (Inf) to all the elements which were NAs, however, after I started the machine learning process, I noticed that it brought a lot of issues and also for the visualization tools process it was quite complex.
+```{r}
+sum(is.na(dataset$Release.Clause)) # == sum(is.na(dataset))
+```
+
+As we can see, there are  NA values, but it is not recommended to remove all of these rows by using na.omit, instead of that, I will change its value to the mean of the column to have a standard and common value to the 1117 rows. In this way the change and impact will be minimized, because it is a 6% (close to 5%) replacing this values using the mean will not have an important impact.
+
+The reason why there is NA in some release clause is because there is no release clause, so if a team wants to buy  the player,it must negotiate with his club first. They cannot pay a certain amount of money in order to purchase the footballer (the value of the release clause)
+
+```{r}
+i <- 1
+while (i <= nrow(dataset)){
+  if (is.na(dataset$Release.Clause[i]) == TRUE){
+    # In the case it is an NA, I will use the mean to assign the mean of the
+    # other values that are not NAs, in that way, I will avoid problems in the future
+    # and maintain my data set clean and unnoisy.
+    dataset$Release.Clause[i] = as.numeric(mean(as.numeric(dataset$Release.Clause), na.rm = TRUE))
+  }
+  i = i + 1
+}
+dataset$Release.Clause = as.numeric(dataset$Release.Clause)
+```
+
+The Age and Potential should be treated as numeric variables.
+```{r}
+dataset$Age = as.numeric(dataset$Age)
+dataset$Potential = as.numeric(dataset$Potential)
+dataset$Overall = as.numeric(dataset$Overall)
+```
+
+
+Lets check for rest of the variables
+```{r}
+class(dataset$Weak.Foot) # Numeric, so it is not necessary to change the class of the variable
+class(dataset$Skill.Moves) # Numeric, same as Weak.Foot variable
+```
+
+Convert some variables into characters
+```{r}
+dataset$Nationality = as.character(dataset$Nationality)
+dataset$Work.Rate = as.character(dataset$Work.Rate)
+dataset$Preferred.Foot = as.character(dataset$Preferred.Foot)
+
+# In the case of the international reputation I will consider it as a numeric
+dataset$International.Reputation = as.numeric(dataset$International.Reputation)
+```
+
+For the height variable we are going to convert it to a numeric variable
+
+```{r}
+i <- 1
+while (i <= nrow(dataset)){
+  # I use the function nchar() and substring() to choose from the first letter
+  # to the ante penultimate letter (to avoid choosing the "cm" part)
+  dataset$Height[i] <- as.numeric(substring(dataset$Height[i], 1, nchar(dataset$Height[i])-2))
+  i = i + 1
+}
+dataset$Height = as.numeric(dataset$Height)
+```
+
+Exactly the same for the weightF 
+
+```{r}
+i <- 1
+while (i <= nrow(dataset)){
+  # I use the function nchar() and substring() to choose from the first letter
+  # to the ante penultimate letter (to avoid choosing the "kg" part)
+  dataset$Weight[i] <- as.numeric(substring(dataset$Weight[i], 1, nchar(dataset$Weight[i])-2))
+  i = i + 1
+}
+dataset$Weight = as.numeric(dataset$Weight)
+```
+
+A quick view of what we already have
+```{r}
+View(dataset)
+summary(dataset)
+str(dataset)
+```
+
+Now, lets split the data set into train and test data sets in order to work with them. 
+```{r}
+# split between training and testing sets
+spl = createDataPartition(dataset$Overall, p = 0.8, list = FALSE)  # 80% for training
+
+datasetTrain = dataset[spl,]
+datasetTest = dataset[-spl,]
+
+str(datasetTrain)
+summary(datasetTrain)
+```
+
+# Studying & transforming a numerical variable into a categorical
+
+In order to study classification, we must study one categorical variable, so instead of choosing one of my categorical variables (which I consider none of them are enough interesting in order to study it), I will choose one numerical variable and transform it into a categorical one, to do that, I will analyze some of my numerical variables and decide which will be my main categorical variable. 
+Because I would like to predict which are the best players, I consider one quite interesting variable could be the Overall, which I consider it is quite interesting to study as a categorical (specially if we can divide it in categories). But firstly, lets see its correlation with the rest of the variables
+
+## Visualization of the variable
+
+```{r}
+ggplot(datasetTrain, aes(Overall)) + geom_density(fill="lightblue") + 
+  xlab("Overall") + ggtitle("Overall distribution")
+```
+
+We can see clearly a distribution similar to a normal distribution
+
+```{r}
+median(datasetTrain$Overall)
+mean(datasetTrain$Overall)
+```
+
+Lets compare it with another important variables such as the International reputation
+```{r}
+ggplot(datasetTrain, aes(Overall)) + geom_density(aes(group=as.factor(International.Reputation), colour=as.factor(International.Reputation), fill=as.factor(International.Reputation)), alpha=0.1) + 
+  ggtitle("Overall distribution")
+```
+
+We can notice that the last group (5) are where most of the players are, and makes sense because the players with the highest overall usually are the most popular internationally
+
+Lets see it with the skill moves and the weak foot variables
+
+```{r}
+ggplot(datasetTrain, aes(Overall)) + geom_density(aes(group=as.factor(Weak.Foot), colour=as.factor(Weak.Foot), fill=as.factor(Weak.Foot)), alpha=0.1) + 
+  ggtitle("Overall distribution")
+
+ggplot(datasetTrain, aes(Overall)) + geom_density(aes(group=as.factor(Skill.Moves), colour=as.factor(Skill.Moves), fill=as.factor(Skill.Moves)), alpha=0.1) + 
+  ggtitle("Overall distribution")
+```
+
+Lets see if there is a relation between the overall and the international reputation of the player
+```{r}
+ggplot(datasetTrain, aes(x=as.factor(International.Reputation), y=Value)) + geom_boxplot(fill="blue") +
+  ggtitle("Overall vs International Reputation")
+```
+We can see clearly that when the international reputation is higher the overall is also higher, it is similar to an exponential distribution
+
+
+We are going to create an auxiliar variable which will be equal to the dataset but with just the numerical variables and scaled in order to use the function featurePlot()
+```{r}
+numericalTrain_dataset = datasetTrain
+
+numericalTrain_dataset$Name = NULL
+numericalTrain_dataset$Nationality = NULL 
+numericalTrain_dataset$Preferred.Foot = NULL
+numericalTrain_dataset$Work.Rate = NULL
+numericalTrain_dataset$Real.Face = NULL
+numericalTrain_dataset$Club = NULL
+```
+
+```{r}
+featurePlot(x = numericalTrain_dataset[, c(1:11)],
+            y = log(datasetTrain$Overall),
+            plot = "scatter")
+```
+We can see some correlations with variables such as potential or wage, but there are plenty of variables which are not correlated such as height or weight. Also, later I will use the ggcorr() in order to prove the data set is not very correlated. For that reason the correlated variables with overall will be remove it later on
+
+## Correlation with my studied variable
+
+Lets see which are the variables most correlated to Overall
+
+```{r}
+corr_overall = sort(cor(numericalTrain_dataset[,c(1:11)])["Overall",], decreasing = T)
+corr=data.frame(corr_overall)
+ggplot(corr,aes(x = row.names(corr), y = corr_overall)) + 
+  geom_bar(stat = "identity", fill = "lightblue") + 
+  scale_x_discrete(limits= row.names(corr)) +
+  labs(x = "", y = "Overall", title = "Correlations") + 
+  theme(plot.title = element_text(hjust = 0, size = rel(1.5)),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+I have decided to delete the variable Potential  because as we can see, it is highly correlated with the variable overall and we should skip variables which are highly correlated in order to avoid problems in the future.
+
+```{r}
+dataset$Potential = NULL
+```
+Now we will compare the variable that we are studying with the variable that it is quite correlated too.
+
+```{r}
+linFit <- lm(Overall ~ International.Reputation, data=datasetTrain)
+summary(linFit)
+```
+
+```{r}
+predictions <- exp(predict(linFit, newdata=datasetTest))-10
+cor(datasetTest$Overall, predictions)^2
+```
+
+It is quite common to see that the test set have a worse r-squared than the training set probably because there is less data in order to predict properly.
+
+We could apply multiple regression, however, it is too PC-resource demanding, so I will just write in with # just to show how it should be applied
+
+```{r}
+#linFit <- lm(Overall ~ ., data=datasetTrain)
+#summary(linFit)
+
+# And to make the prediction using a multiple regression model
+
+#pred.log <- predict(linFit, newdata=datasetTest)
+#cor(datasetTest$Overall, pred.log)^2
+```
+
+## Classification approach
+
+As I explained before, we will divide the Overall numeric variable into three categories: Bronze(B), Silver(S) and Gold(G), because players in FIFA23 are divided in these three groups depending on their overall (it is explained before), where bronze players are those with an overall between 0 and 60, silver players which have an overall between 61 and 69, and finally gold players which have an overall higher or equal to 70.
+
+We will follow the next procedure:
+
+As I explained before, bronze players will be between 0 and 60, silver between 61 and 69, and gold higher or equal than 70.
+
+I consider it is good to use this three categories because we will predict players in the 3 categories already existing in the game (bronze, silver and gold) that would make sense in my classification topic and will be according to the game rules, which at the end of the day is what my data set is based.
+
+Before all, lets see how many players are in each category
+```{r}
+# Let's see if the categories are more or less balanced
+# We start with the players that are in the category of bronze
+i <- 1
+b = 0
+while (i <= nrow(dataset)){
+  if (dataset$Overall[i] <= 59 ){
+    b = b+1
+  }
+  i = i+1
+  }
+b
+
+# Players in the silver category
+i <- 1
+s = 0
+while (i <= nrow(dataset)){
+  if (dataset$Overall[i] > 59 && dataset$Overall[i] < 67 ){
+    s = s+1
+  }
+  i = i+1
+  }
+s
+
+# Players higher than 70 which belongs to the gold category
+i <- 1
+g = 0
+while (i <= nrow(dataset)){
+  if (dataset$Overall[i] >= 67 ){
+    g = g+1
+  }
+  i = i+1
+  }
+g
+
+# In order to check that we selected all the rows, we can verify it by comparing the number of rows of the data set and the sum of the number of gold, silver and bronze players (which should be the same)
+(g + b + s) == nrow(dataset) #TRUE
+
+```
+
+As we can see, we include all the players in one of the three existing categories and we also obtained more or less balanced groups in terms of the number of data in each category, which I consider it is good. 
+However, it is true that the class "gold" is a little bit unbalanced compared to the other two classes, however, it makes sense in this context because there must be less top players than average or bad players.
+
+I will create an auxiliary variable called dataset_2c in order to save my data set with the variable Overall in numerical terms, because I will need in the future in order to instead of working with 3 classes in my categorical main variable, I will work with 2 classes (I will later explain it), in this way we could apply more methods of supervised learning tools.
+
+I will create a dataset that I will use it in the future in order to apply binary classification methods
+```{r}
+# dataset for binary classification 
+dataset_2c = dataset
+```
+
+Lets now make the swap.
+
+```{r}
+dataset$Type = factor(ifelse(dataset$Overall < 60, "Bronze", ifelse(dataset$Overall >= 67, "Gold", "Silver")))
+
+# We must delete the Overall class
+dataset$Overall = NULL
+```
+
+In this way we change from a numerical variable to a categorical variable (in which the levels are Gold, Silver and Bronze), that was our principal objective.
+
+```{r}
+levels(dataset$Type)
+table(dataset$Type)
+```
+As before, classes are very balanced which is good in order to obtain good models
+
+# Outliers
+
+I am going to plot different box plots in order to identify the outliers and after I will decide if it is necessary to delete them or not depending if they make sense inside the data set
+
+As we can see in the following box plots, there is a huge amount of outliers, specially in the Wage, Release.Clause and Value variables, however, it make sense that especifically in those variables there are an important amount of outliers, because there is quite few top professional footballers that earns so much money or have that value in the market. About the rest of the variables (such as height or weight), we can see there exist some outliers but quite less than other variables. But as before, it is normal to see a big difference of height for example between footballers but is something natural and common.
+
+```{r}
+ggplot(dataset, aes(y = dataset$Wage)) + geom_boxplot(color = "red") + theme_minimal()
+ggplot(dataset, aes(y = dataset$Value)) + geom_boxplot(color = "blue") + theme_minimal()
+ggplot(dataset, aes(y = dataset$Release.Clause)) + geom_boxplot(color = "magenta") + theme_minimal()
+ggplot(dataset, aes(y = dataset$Height)) + geom_boxplot(color = "orange") + theme_minimal()
+ggplot(dataset, aes(y = dataset$Weight)) + geom_boxplot(color = "cyan") + theme_minimal()
+
+```
+
+After considering different possibilities, I think the best option is leave the outliers  because all of them makes sense and do not contribute noise to the data set. The reason of all this amount of outliers is because the best players in the video game have a value, wage, etc... quite higher than the mean footballer in FIFA 23.
+It is not surprising to see it because that players are quite famous so they move a lot of money around them. However, almost any non top footballer have a wage, value and release clause quite small compared to the elite, which is conformed by just a few, that is why they are the outliers.
+
+
+We finally obtained the following data set after the whole pre-processing previously done.
+```{r}
+categorical_dataset = dataset
+View(dataset)
+summary(dataset)
+str(dataset)
+```
+
+## Correlation between variables
+
+Before the visualization tools, we could start by watching the relation between the variables in order to study them and prove that the data set is not very correlated and also to know which of the variables are the most correlated to use it for the visualization tools in order to obtain interesting conclusions
+
+```{r}
+library(factoextra)
+library(GGally)
+```
+
+Lets create a new varialbe which contains only the numerical variables and  already scaled, and we will use the ggcorr() in order to have a graphical representation of the correlation between variables
+
+```{r}
+numerical_dataset = dataset
+
+numerical_dataset$Name = NULL
+numerical_dataset$Nationality = NULL 
+numerical_dataset$Preferred.Foot = NULL
+numerical_dataset$Work.Rate = NULL
+numerical_dataset$Real.Face = NULL
+numerical_dataset$Club = NULL
+numerical_dataset$Type = NULL
+
+numerical_dataset = scale(numerical_dataset)
+
+ggcorr(numerical_dataset, label = T)
+```
+
+As we can see there are 29 correlations between -0.4 and 0.4, and the rest (which are greater or equal than 0.5 or lower or equal to -0.5) are 7 correlations, so we could say the data set is not very correlated, however, we have some correlated variables which will also be useful.
+
+# Visualization Tools
+
+
+## Univariable
+
+First of all, we will graph some of the variables individually
+
+```{r}
+ggplot(dataset, aes(dataset$Real.Face)) + geom_bar(color = "deeppink", fill = "chocolate") + labs(title = "Real face of players",
+                                                            x = "Real Face", y = "Frequency") + theme_bw()
+
+ggplot(dataset, aes(dataset$Height)) + geom_histogram(color = "chartreuse 3", fill = "chartreuse", binwidth = 3) +
+  labs(x = "Potential (Points out of 100)", y = "Frequency") + theme_grey()
+
+ggplot(dataset, aes(dataset$Age)) + 
+  geom_histogram(color = "darkorchid1", fill = "turquoise", binwidth = 1) +
+  labs(x = "Age (Years)", y = "Frequency") + theme_light() + scale_x_continuous()
+
+ggplot(dataset, aes(log(dataset$Value+10))) + geom_density(fill="lightblue") + 
+  xlab("Value") + ggtitle("Value distribution") + scale_x_continuous()
+
+```
+
+
+## Bivariable
+
+Lets now explore our data relations and see graphically their relation between the variables.
+
+Firstly, let's see the relation between the Value and the Wage 
+
+```{r}
+ggplot(dataset, aes(dataset$Value, dataset$Wage)) + geom_smooth(method = "gam",
+                                                                  formula = y ~ s(x, bs = "cs"))+
+  geom_line(alpha = 0.5) + theme_light() + labs(title= "Wage - Value", 
+                                                x = "Value (€)", y = "Wage (€)")
+```
+
+As it can seen, the shape is similar to an exponential function, where, when the potential of the player increases, the wage also increases exponentially, this is normal because a player will ask for a bigger wage as its overall score increases.
+
+Also we can compare between the international reputation of a player and his value in the market, because we can suppose that a player will have a bigger value depending in variables such as value, or in this case, his international reputation
+
+```{r}
+ggplot(dataset, aes(y = as.factor(dataset$International.Reputation), x = dataset$Value)) + geom_boxplot(color = "blue", fill = "cyan", alpha = 0.2) +
+  theme_get() + labs(title = "International Reputation - Value", 
+                     y = "International reputation (Points out of 5)", x = "Value (€)")
+```
+
+We could also search another relation between the age and the skill moves, because when a player is younger, usually will be more agile and for that reason, maybe their skill moves will be better.
+```{r}
+ggplot(dataset, aes(dataset$Age, dataset$Skill.Moves)) + geom_col(color = "black", alpha = 0.5, linetype = 1) +
+  theme_minimal() + labs(y = "Skill Moves", 
+                         x = "Age (Years)", title = "Skill Moves - Age")
+```
+
+As we supposed, when the footballers are older, their skill moves are worst, specially players between 20 and 25 years are the ones with the best skill moves, which makes sense because they are in the prime or their career.
+
+Also we can explore if depending in if the game scanned the footballer's face or not  could depend on the potential variable (or viceversa).We could think it is because if that player  has a big potential (which means the highest overall score the player can reach) means that a lot of clubs are interested on him (and if we translate this into the videogame, lot of users would like to have him in his club),  FIFA 23 included his real face in the game for marketing reasons. By common sense, the best players (which are the ones with the highest potential) are more likely to have their real faces included in the video game rather than the average players, because more users wants to play with them and feel it realistic.
+
+```{r}
+ggplot(dataset, aes(as.factor(dataset$Real.Face), dataset$Value)) + geom_boxplot(color = "purple", 
+                                                                        fill = "lightblue", alpha = 0.5) + 
+  geom_violin(alpha = 0.01) + theme_light() + labs(title = "Overall - Real.Face", 
+                                                   x = "Real Face included",
+                                                   y = "Potential (Points out of 100)") + scale_alpha()
+```
+
+After plotting the box plot and the violin plot, we can see that is quite likely  that if the footballer have a high market value, his face will probably be included in the video game. It can be also justified in other the opposite way, if FIFA includes the face of a footballer, he will want to announce that characteristic of their video game, so probably that player will have a higher value compared to others.
+
+
+Another interesting graph could be the compassion between the weak foot quality of the footballers and their skill moves, because for lot of footballers it is essential to be good with their both feet in order to dribble the rivals.
+
+```{r}
+ggplot(dataset, aes(dataset$Skill.Moves, dataset$Weak.Foot)) + geom_count(color = "darkslategray3") +
+  labs(title = "Weak Foot - Skill Moves", x = "Skill Moves (Points out of 5)",
+       y = "Weak Foot (Points out of 5)") + theme_light()
+```
+
+It is also interesting to see if the players that are tall maybe have a worst skill move compared to the smallest players, that may have more control at the ball and be able to dribble better
+
+```{r}
+ggplot(dataset, aes(as.factor(dataset$Skill.Moves), dataset$Height)) + 
+  geom_violin() + geom_boxplot() + labs(title = "Height - Skill Moves (Flipped)",
+                                        x= "Skill moves (Points out of 5)", 
+                                        y = "Height (cm)")
+```
+
+It is true that the footballers with the best skill moves are quite smaller that are around 177 cm compared to the players with the worst skill moves that tends the 190 cm.
+
+Also, despite there are too much countries to have a visual result, I was quite interested in knowing if the nationality could have an impact on the international reputation of the players.
+
+```{r}
+ggplot(dataset, aes(as.factor(dataset$Nationality), as.numeric(dataset$International.Reputation))) + geom_count(color = "brown") +
+  labs(title = "Nationality - International Reputation", x = "Nationality",
+       y = "International Reputation") + theme_minimal() + coord_flip() + 
+  theme(legend.position = "none") + scale_x_discrete()
+```
+
+After analyzing the result, there is plenty of evidence that it could really have an impact that depending on the country a footballer could have a  higher or lower international reputation. (Furthermore, with the current political situation, it makes sense)
+
+
+It could be interesting to compare between the work rate and the value of the players, in order to know to what extend this variable has an impact on the players value.
+
+```{r}
+ggplot(dataset, aes(dataset$Work.Rate, dataset$Value)) + 
+  geom_point(color = "lightpink") + coord_flip() +
+  labs(title = "Value - Work Rate (Flipped)", y = "Value (€)", x = "Work Rate") +
+  theme_minimal()
+```
+
+We can notice there are some differences specially with the players with the low work rate.
+
+We can also compare the player's release clause and his value in the market in order to see if this both variables increases at the same time equally
+
+```{r}
+ggplot(dataset, aes(dataset$Value, dataset$Release.Clause)) + geom_point() + 
+  geom_smooth(color = "red", method = "gam", formula = y ~ x) + theme_minimal()
+```
+
+As we can see, there is a strong positive relation ship between this two variables, it looks like they are directly proportional.
+
+After visualizing different variables, lets focus on our main target variables (numeric and categorical)
+
+We could compare our main categorical (and numerical) variable with another important variable such as Value
+
+```{r}
+ggplot(dataset, aes(dataset$Type, dataset$Value)) + geom_boxplot(color = "magenta") +
+    labs(title = "Overall - Value", x = "Overall",
+         y = "Value") + theme_minimal() + coord_flip() + scale_alpha()
+```
+
+It is clear that the footballers that belongs to the gold category have the highest value in the market, which makes sense because the gold players are the players with the best overall between the three categories in this variable in the game so it is common to think that those are the players with the highest value.
+
+
+```{r}
+ggplot(dataset, aes(log(dataset$Value+10))) + geom_density(aes(group=Type, colour=Type, fill=Type), alpha=0.1) + 
+  ggtitle("Value distribution")
+```
+
+Now we could see the relation between the value variable with the rest of the numerical variables,
+```{r}
+# We get a data set with just the numeric variables
+
+value_dataset = dataset
+
+value_dataset$Name = NULL
+value_dataset$Nationality = NULL 
+value_dataset$Preferred.Foot = NULL
+value_dataset$Work.Rate = NULL
+value_dataset$Real.Face = NULL
+value_dataset$Club = NULL
+value_dataset$Type = NULL
+
+featurePlot(x =value_dataset[, c(1:9)],
+            y = log(dataset$Value+10),
+            plot = "scatter",
+            layout = c(3,3))
+```
+
+Some insights could be that in some variables such as there is not a clear relation with variables such as height or weight and in most of the variables. So we can expect there are not correlated variables at all.
+
+Thanks to this graphical analysis, we found the distribution of different variables of different classes (factor, numerical...) and also the relationship between different variables and we can understand easily our target variables (and also the other ones)
+
+
+# CLASSIFICATION
+
+**NOTE:** It is important to mention that in order to apply all the methods, I will use an auxiliar variable called "aux" which will be identical to the original data set in order to have my original data set save.
+
+```{r}
+# Variable aux in order to save the original main data set
+aux = dataset
+
+#Lets delete some variables that can cause some issues when applying LDA because this proccess must make an analysis for all this characters variables, so the variables which contains a lot of groups (such as names or nationalities) must be removed
+dataset$Name = NULL
+dataset$Nationality = NULL
+dataset$Club = NULL
+
+
+spl = createDataPartition(dataset$Type, p = 0.8, list = FALSE)  # 80% for training
+
+datasetTrain = dataset[spl,]
+datasetTest = dataset[-spl,]
+
+table(datasetTrain$Type) 
+table(datasetTest$Type)
+```
+
+Lets see if the classes are balanced
+```{r}
+ggplot(datasetTrain, aes(x=Type, fill = as.factor(Skill.Moves))) + geom_bar()
+
+```
+It is easy to think that players in the gold category will have better skill moves compared to the other categories which have worst players, and this logic can also be translated to players that are in the silver category which should have better skill moves rather than players in the bronze class.  
+
+
+# Bayes Classifiers
+
+
+## LDA
+
+Lets start creating our lda model by using our target categorical variable (Overall) in order to create a model to predict and test it.
+
+```{r}
+lda.model <- lda(Type ~ ., data=datasetTrain,  prior = c(1/3, 1/3, 1/3)) 
+
+# Alternative way that I found searching by my own:
+# lda.model <- lda(datasetTrain[,-16], grouping = datasetTrain[,16], prior = c(1/6, 1/3, 1/2))
+
+lda.model
+```
+
+Note there are two linear classifiers because we have 3 classes. 
+Its important to mention that in our case, because our data set is more or less balanced, our prior can be equal an divided by the number of classes (in our case 3 classes, so 1/3). But prior should roughly represent the proportion of each class
+
+Lets compute the posterior probabilities
+```{r}
+probability = predict(lda.model, newdata=datasetTest)$posterior
+head(probability)
+```
+
+We can predict the labels for the type variable, by applying the Bayes rules of maximum probability
+```{r}
+prediction <- max.col(probability)
+
+head(prediction)
+
+```
+We can see that the prediction obtained more or less balanced classes. However, just by looking at it and comparing with what we know are the true values of the data set, we can see there are some important mistakes, so we could expect the accuracy would be around 60%, which is not bad but definitely could be better.
+
+An alternative way in which instead of representing the number of the class, the output is the name of the class predicted.
+
+```{r}
+prediction = predict(lda.model, newdata=datasetTest)$class
+
+head(prediction)
+
+summary(prediction)
+```
+As we can see, we obtained the predictions based on our lda model and see that in the head we obtained only "Gold", probably because the gold players are at the beginning of the data set and then, they would belong to the head of the data set.
+
+Performance: 
+
+Lets start by computing the confusion matrix
+
+```{r}
+table(prediction, datasetTest$Type)
+
+confusionMatrix(prediction, datasetTest$Type)$table
+
+confusionMatrix(prediction, datasetTest$Type)$overall[1]
+```
+
+As we can see, we obtain the accuracy of the model, which is around 65% of accuracy. It is not a very good model but is not too bad either, probably we obtained a decent accuracy because our classes are quite balanced, which is quite important. The result was quite expected just by looking when previously we used the function summary() in order to see prediction. 
+However, in order to improve even more this accuracy and especially for the cases in which we have unbalanced classes, a good idea is to instead of having 3 classes, create just two classes in order to have the most balanced set as possible, in my case, it is not too necessary, however, later on I will apply this same method with just two classes in order to see if we obtain a better accuracy or not. 
+Anyways, the accuracy obtained with this model was quite good.
+
+
+## QDA
+
+```{r}
+
+qda.model <- qda(Type ~ ., data=datasetTrain, prior = c(1/3, 1/3, 1/3))
+qda.model
+
+```
+
+Now we can study the performance of the model and find its accuracy.
+
+```{r}
+prediction = predict(qda.model, newdata=datasetTest)$class
+confusionMatrix(prediction, datasetTest$Type)$table
+
+confusionMatrix(prediction, datasetTest$Type)$overall[1]
+
+```
+By applying QDA we have obtained  an accuracy around 77%, which is very good, it could be better but it is a great accuracy anyways.
+
+
+## Benchmark model
+
+
+```{r}
+obs <- max(table(datasetTest$Type))
+
+#Accuracy
+obs/nrow(datasetTest) #0.3
+
+```
+
+As we can see the benchmark is not very good, probably because there are too many noise so we can apply different approaches in order to imporve it.
+
+One idea in order to improve our accuracy (or reduce our noise) would be to if instead of considering 3 classes, we transform it into only two classes (for example, "Elite" and "Average"). However, that would imply that our data set will be less practical because at the end of the day our objective is try to predict if a player belongs to one of the already existing categories in FIFA 23 (Gold, silver, bronze).  
+As I explained previously, in my case it would not be extremely necessary because it is not worth it to obtain a less practical response variable for just obtaining balanced groups in order to avoid noise, because in our case the groups are already quite balanced. 
+
+
+Because the groups will be more balanced, that would probably imply an increase in the accuracy of the model.
+
+As I said before, I saved a variable called "dataset_2c" in order to save the dataset with the variable Overall in numerical terms
+```{r}
+# We will save again our original data set with the categorical variable (Overall) still like a numerical variable
+copy = dataset_2c
+```
+
+```{r}
+dataset_2c$Type = factor(ifelse(dataset_2c$Overall <= 62, "Average", "Elite"))
+# We must delete the Overall class
+dataset_2c$Overall = NULL
+
+# We finally convert the Overall variable into a factor by using the function as.factor() to finally transform it from a numerical to a categorical variable
+dataset_2c$Type= as.factor(dataset_2c$Type)
+```
+
+Lets see the classes and how many rows are in each class
+```{r}
+levels(dataset_2c$Type)
+table(dataset_2c$Type)
+```
+Again, we obtain very well-balanced classes, there are approximately less than a 1% of difference between both classes, which we could affirm it is insignificant that there is considerable difference between classes.
+
+As before, we must apply the same procedure.
+
+```{r}
+dataset_2c$Name = NULL
+dataset_2c$Nationality = NULL
+dataset_2c$Club = NULL
+```
+
+Again, we split the data into train and test sets.
+```{r}
+spl_2c = createDataPartition(dataset_2c$Type, p = 0.8, list = FALSE)  # 80% for training
+
+datasetTrain_2c = dataset_2c[spl_2c,]
+datasetTest_2c = dataset_2c[-spl_2c,]
+
+table(datasetTrain_2c$Type)
+```
+
+Now it is much more balanced the classes in the training and test set too.
+
+
+```{r}
+lda.model <- lda(Type ~ ., data= datasetTrain_2c)
+prediction = predict(lda.model, newdata= datasetTest_2c)$class
+confusionMatrix(prediction, datasetTest_2c$Type)$table
+confusionMatrix(prediction, datasetTest_2c$Type)$overall[1]
+```
+
+We should obtain a higher accuracy compared to before, in this case, it rounds the 80% of accuracy. However, for my case the accuracy obtained is almost the same as when we applied the LDA but with 3 different classes instead of 2, the reason of this is because we already had balanced groups so it was not necessary to use 2 classes instead of 3, but anyways, it is always good to check and try different options in order to see the different outputs, specially because later on I will try to apply methods to my multiclass and binary classification data sets in order to see the differences and similarities.
+
+So I would recommend that having just 2 different classes instead of 3 would be worth it only if we have unbalanced groups, which is not my case, because I am obtaining a less practical response variable and not achiving more accuracy or avoiding noise. However, having a model with just 2 groups may be useful for the future.
+
+
+## Logistic regression
+
+For logistic regression is focused on binary classification (however, there exist some algorithms in order to solve 3-class classification tasks). However, for my case, I will use my 2-class set to apply logistic regression, in that way I could apply the glm function in R.
+
+```{r}
+aux_2c = dataset_2c
+auxtrain_2c = datasetTrain_2c
+auxtest_2c = datasetTest_2c
+
+# We should remove from the training and test sets the non-numerical variables in order to apply this tool. However, it is not necessary  because R does it automatically.
+auxtrain_2c$Preferred.Foot = NULL
+auxtrain_2c$Work.Rate = NULL
+auxtrain_2c$Real.Face = NULL
+auxtrain_2c$Preferred.Foot = NULL
+auxtrain_2c$Work.Rate = NULL
+auxtrain_2c$Real.Face = NULL
+
+logit.model <- glm(Type ~ ., family=binomial(link='logit'), data= datasetTrain_2c)
+summary(logit.model)
+
+```
+
+Make predictions (posterior probabilities):
+
+```{r}
+probability <- predict(logit.model,newdata=datasetTest_2c, type='response')
+head(probability)
+summary(probability) 
+
+```
+
+We might better use the function summary() instead of the head() function because as my data set is organized by the players that had the best overall to the players with the worst overall.
+
+It is important to mention that I will use as threshold = 0.5 (which is an hyper-parameter) because groups are quite balanced and I think it is an optimal hyper parameter. However, later on we will compute the optimal hyper-parameter.
+
+```{r}
+prediction <- as.factor(ifelse(probability > 0.5,"Elite","Average"))
+head(prediction)
+summary(prediction)
+
+```
+
+Now lets compute the confusion matrix and analyze its performance in order to see the accuracy
+```{r}
+confusionMatrix(prediction, datasetTest_2c$Type)
+```
+
+As we can see, we obtained a high accuracy (95% more or less) and also a high kappa. By looking at the confusion matrix we can visually notice that our model has been quite accurate. At the moment is one of our best models plotted, this is good because we are almost predicting correctly all the data.
+
+## Penalized logistic regression
+
+An alternative way which is more recommended if the dimension is high would be to apply a penalized version of the Logistic Regression, that in our case that we have a big dimension, would be an interesting idea.
+
+```{r}
+dim(dataset) # As we can see, the dimension of the data set are big enough to be interested in computing the penalized logistic regression
+```
+
+In my case I will apply the function glmnet(), but there are others such as elasticnet() that could be used.
+
+I will start by applying the "multinomial" approach to my 3-class data set.
+
+```{r}
+aux = dataset
+auxtrain = datasetTrain
+auxtest = datasetTest
+
+# As before, we must delete the non-numerical variables in order apply this tool
+auxtrain$Preferred.Foot = NULL
+auxtrain$Work.Rate = NULL
+auxtrain$Real.Face = NULL
+auxtest$Preferred.Foot = NULL
+auxtest$Work.Rate = NULL
+auxtest$Real.Face = NULL
+```
+
+```{r}
+logit.model <- glmnet(as.matrix(auxtrain[,-10]),auxtrain$Type, family=c("multinomial"), alpha=0, lambda=0.01)
+
+logit.model
+```
+
+
+```{r}
+probability <- predict(logit.model, as.matrix(auxtest[,-10]), type='response')
+
+
+# I choosed those thresholds in order to maintain balanced groups predictions.
+prediction <- as.factor(ifelse(probability < 0.15, "Bronze", ifelse(probability > 0.45,"Silver","Gold")))
+
+summary(prediction)
+glimpse(prediction)
+
+
+```
+
+It could be interesting to see the penalized logistic regression in our 2-class data set because it is true that the dimension is quite high and just to see what would be the predictions.
+
+If we apply it to the 2-class data set just to see the outputs by using the "binomial" approach
+
+```{r}
+aux_2c = dataset_2c
+auxtrain_2c = datasetTrain_2c
+auxtest_2c = datasetTest_2c
+
+# As before, we must delete the non-numerical variables in order apply this tool
+aux_2c$Preferred.Foot = NULL
+aux_2c$Work.Rate = NULL
+aux_2c$Real.Face = NULL
+auxtrain_2c$Preferred.Foot = NULL
+auxtrain_2c$Work.Rate = NULL
+auxtrain_2c$Real.Face = NULL
+auxtest_2c$Preferred.Foot = NULL
+auxtest_2c$Work.Rate = NULL
+auxtest_2c$Real.Face = NULL
+```
+
+```{r}
+logit.model <- glmnet(as.matrix(auxtrain_2c[,-10]),auxtrain_2c$Type, family=c("binomial"), alpha=0, lambda=0.01)
+
+logit.model
+```
+
+```{r}
+probability <- predict(logit.model, as.matrix(auxtest_2c[,-10]), type='response')
+prediction <- as.factor(ifelse(probability > 0.5,"Elite","Average"))
+confusionMatrix(prediction, auxtest_2c$Type)
+
+```
+
+This time we obtained an accuracy that are approximately 85% (which is not bad). However, the previous alpha and lambda that we choose are hyper-parameters, so it would be interesting to find a way to compute the optimal hyper-parameters.
+
+Also the results obtained here are quite similar to results obtained previously.
+
+We could maybe try to modify a little bit the hyper parameters in order to see the differences between the models due to the hyper parameters, for instance, lets see if we increase by 0.02 the lambda and see if it is a significant difference
+
+```{r}
+logit.model_ <- glmnet(as.matrix(auxtrain_2c[,-10]),auxtrain_2c$Type, family=c("binomial"), alpha=0, lambda=0.03)
+
+probability_ <- predict(logit.model_, as.matrix(auxtest_2c[,-10]), type='response')
+prediction_ <- as.factor(ifelse(probability > 0.5,"Elite","Average"))
+confusionMatrix(prediction_, auxtest_2c$Type)
+```
+
+## ROC Curve
+
+ROC curve shows true positives vs false positives in relation with different thresholds:
+
+y-axis = Sensitivity (TP)
+x-axis = Specificity (1-FP)
+
+
+For the 2-class data set
+```{r}
+model <- lda(Type ~ ., data=datasetTrain_2c)
+
+```
+
+Lets now obtain the posterior probabilities (similar process as before)
+```{r}
+probability = predict(model, datasetTest_2c)$posterior
+
+```
+
+And also compute the ROC
+```{r}
+roc.lda <- roc(datasetTest_2c$Type,probability[,2])
+auc(roc.lda)
+
+```
+Now that we have the AUC (Area Under the Curve) we can plot the ROC Curve graphically
+
+```{r}
+plot.roc(datasetTest_2c$Type, probability[,2],col="purple", print.auc = TRUE,  auc.polygon=TRUE, grid=c(0.1, 0.2),
+         grid.col=c("green", "red"), max.auc.polygon=TRUE,
+         auc.polygon.col="lightblue", print.thres=TRUE)
+
+```
+When the AUC is bigger, the better, in our case our AUC is around 90%,so we can affirm the model is quite good. We can see that the area under the curve is big so we could say that our models are good. When the ROC curve goes more to the upper left corner, it means it is a perfect classification (AUC = 1). At the opposite side, the  down right corner is a bad classification (AUC = 0) and the line at the middle would be if we try a model which guess randomly.
+In our case the ROC curve indicates that we have a quite good model because the AUC is big.
+
+
+## The Benchmark
+
+```{r}
+library(gbm)
+library(neuralnet)
+```
+In this case because we have many predictors, we will apply the penalized logistic regression
+
+Again we will use our 2-class data set.
+Later on I will apply this same method for my multiclass data set (3-class data set)
+
+```{r}
+ctrl <- trainControl(method = "cv", number = 5,
+                     classProbs = TRUE, 
+                     verboseIter=T)
+
+# We have many predictors, hence use penalized logistic regression
+
+lrFit <- train(Type ~ ., 
+               method = "glmnet",
+               tuneGrid = expand.grid(alpha = seq(0, 1, 0.1), lambda = seq(0, .1, 0.02)),
+               metric = "Kappa",
+               data = auxtrain_2c,
+               preProcess = c("center", "scale"),
+               trControl = ctrl)
+
+```
+
+After training we can plot the lrFit
+
+```{r}
+print(lrFit)
+
+```
+
+Make the predictions and the CM
+```{r}
+lrPred = predict(lrFit, auxtest_2c)
+confusionMatrix(lrPred, auxtest_2c$Type)
+```
+We obtained an accuracy of around 95% which is almost a perfect classification so this model are one of the best ones, as we can see the accuracy is close to 1 which is our main objective. We must pay attention in order to avoid a possible over fitting of the model. 
+
+## Variable Importance
+
+Now we can plot the importance of each variable for the model and see which variables have the most impact
+```{r}
+lr_imp <- varImp(lrFit, scale = F)
+plot(lr_imp, scales = list(y = list(cex = .95)))
+```
+We can clearly see that the variable Value is the most important in our model, followed by the Release Clause variable. The rest of the variables are less important comparted to Value.
+
+## We can again plot the ROC Curve
+
+```{r}
+library(pROC)
+lrProb = predict(lrFit, auxtest_2c, type="prob")
+
+plot.roc(auxtest_2c$Type, lrProb[,2],col="darkblue", print.auc = TRUE,  auc.polygon=TRUE, grid=c(0.1, 0.2),
+         grid.col=c("green", "red"), max.auc.polygon=TRUE,
+         auc.polygon.col="lightblue", print.thres=TRUE)
+```
+We obtained almost a perfect classification where the AUC is 0.99 because as I explained before, the AUC must be close to 1 in order to be a good model.
+A threshold around 0.4 is convenient for this case.
+
+Additionally, we could plot the ROC Curve related to other important variables, for instance, we could choose International Reputation in order to see its ROC Curve.
+```{r}
+plot.roc(auxtest_2c$Type[auxtest_2c$International.Reputation == 1], lrProb[auxtest_2c$International.Reputation == 1,2],print.auc = TRUE, col = "green", print.auc.col = "darkgreen",print.auc.y = 0.98, print.auc.x = 0.6)
+```
+We obtain a ROC curve similar to the previous one
+
+```{r}
+threshold = 0.4
+lrProb = predict(lrFit, auxtest_2c, type="prob")
+lrPred = rep("Average", nrow(auxtest_2c))
+lrPred[which(lrProb[,2] > threshold)] = "Elite"
+confusionMatrix(factor(lrPred), auxtest_2c$Type)
+```
+Again, we obtain a 95% of accuracy which is great, as we can see in the different models, we are obtaining high accuracies so most of our models has been effective and effective.
+
+
+## Cost-sensitive learning
+
+As we can imagine, the errors will not have the same impact when predicting, that is why we must create a cost matrix in order to determine which mistakes or rights will have a biggest impact in our model.
+
+For instance, it is less problematic to think a player from the elite belongs to the average compared to a player from the average class that is predicted to be in the elite class, because that would imply that player will probably earn a bigger wage and other aspects that would be a bigger mistake that in the inverse case.
+In the case it predicts that an elite player belongs to the average, that would also imply a cost (but less serious) because a potential player that could generate profits to the club cannot be recognized in order to sign him (or if is already in the club, retain him).
+Another option is to predict that a player is from the elite and actually been from the elite, which we will imply a higher wage and other aspects, and obviously, if a club needs to invest more money in order to retain a player, it is more risky than having an average player, because maybe if that players gets hurt or starts to have a bad daily routine (such as smoking, eating dunk food) the invest of money into that player will be loosed, for that reason I will add some cost if we predict it is an elite player and actually it is an elite player. 
+Finally if a player is from the average and the model predicts it belongs to the average, we are fine so we do not need to addd any cost in there.
+
+For that reason we must compute the unit cost taking into consideration the impact of the different possibilities.
+
+In order to apply this the cost-sensitive learning method I must have a cost unit depending on the cost of predicting a true positive, false positive, true negative and false negative. 
+
+where: 
+TN = True Negatives
+FP = False Positives
+FN = False Negatives
+TP = True Positives
+
+In this way the cost matrix will be something similar to:
+
+-------------------  Average | Elite -------------------
+
+predicted Average  |   0     |   150  |
+                   |-------- |--------|
+predicted Elite    |  500    |   50   |
+
+---------------------------------------------------------
+Unit cost is:
+0*TN + 150xFP + 500xFN + 50xTP
+
+As I said before, I will use as my cost.unit vector the one that the professor used in his case study assuming the cost will be equivalent. In this way I can show how the cost-sensitive learning could be applied to my work.
+
+Firstly, we create  the cost unit vector
+```{r}
+cost.unit <- c(0, 150, 500, 50)
+```
+
+## Cost of Naive classifier
+
+```{r}
+CM = confusionMatrix(factor(lrPred), auxtest_2c$Type)$table
+cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+cost
+
+```
+We obtain the cost of the model, which we should compare this cost with other models in order to take into consideration which have the biggest cost (and then, would be a worse model).
+
+## Cost-sensitive classifier (expert level)
+
+```{r}
+cost.i = matrix(NA, nrow = 100, ncol = 10)
+# 20 replicates for training/testing sets for each of the 10 values of threshold
+
+j <- 0
+for (threshold in seq(0.05,0.5,0.05)){
+  
+  j <- j + 1
+  cat(j)
+  for(i in 1:100){
+    
+    # partition data intro training (75%) and testing sets (25%)
+    d <- createDataPartition(auxtrain_2c$Type, p = 0.8, list = FALSE)
+    # select training sample
+    
+    train <- aux_2c[d,]
+    test  <- aux_2c[-d,]  
+    
+    lrFit <- train(Type ~ ., data=auxtrain_2c, method = "glmnet",
+                   tuneGrid = data.frame(alpha = 0.3, lambda = 0), preProcess = c("center", "scale"),
+                   trControl = trainControl(method = "none", classProbs = TRUE))
+    
+    lrProb = predict(lrFit, auxtest_2c, type="prob")
+    lrPred = rep("Average", nrow(auxtest_2c))
+    lrPred[which(lrProb[,2] > threshold)] = "Elite"
+    
+    CM = confusionMatrix(factor(lrPred), auxtest_2c$Type)$table
+    cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+    cost
+    
+    cost.i[i,j] <- cost
+    
+  }
+}
+#12345678910
+```
+This process is highly time consuming but also is true it is for expert level. Furthermore it will be useful in order to find the optimal threshold in order to compute the best model.
+
+
+Now lets find the optimal threshold
+```{r}
+# Threshold optimization:
+boxplot(cost.i, main = "Threshold selection",
+        ylab = "unit cost",
+        xlab = "threshold value",
+        names = seq(0.05,0.5,0.05),col="royalblue2",las=2)
+
+```
+We can see in the graph that the value of the threshold in order to be reasonable should be around 0.35
+
+
+```{r}
+apply(cost.i, 2, median)
+
+```
+
+And to end, if we apply the optimal threshold our final prediction would be:
+
+```{r}
+threshold = 0.35
+lrFit <- train(Type ~ ., data= auxtrain_2c, method = "glmnet",
+               tuneGrid = data.frame(alpha = 0.3, lambda = 0), preProcess = c("center", "scale"),
+               trControl = trainControl(method = "none", classProbs = TRUE))
+lrProb = predict(lrFit, auxtest_2c, type="prob")
+lrPred = rep("Average", nrow(auxtest_2c))
+lrPred[which(lrProb[,2] > threshold)] = "Elite"
+CM = confusionMatrix(factor(lrPred), auxtest_2c$Type)$table
+cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+cost
+```
+The cost of this model and the cost of naive classifier are the same. However, this technic is way more demanding.
+
+## Risk learning
+
+There are players which wage is higher than others. For instance, it is risky to pay a high wage to a player which do not belongs to the elite which cannot generates what he is getting paid, for that reason I will study in my risk learning the wages of players.
+
+```{r}
+wage.risk = auxtest_2c$Wage*lrProb[,2]
+hist(wage.risk, col= "blue")
+
+```
+
+We should be worried about players with a wage higher than 10^5 € which starts to be a very high salary.
+```{r}
+sum(wage.risk>10^5)/length(wage.risk)
+```
+
+Approximately 1% of footballers have this high wages
+
+```{r}
+sort.risk = sort(wage.risk,decreasing=T,index.return=T)
+
+```
+
+```{r}
+# Most risky positions:
+head(sort.risk$x)
+
+# Most risky footballers:
+head(sort.risk$ix)
+```
+As we can see it shows the index of the footballers with the highest risk, this may be useful for clubs in order to study if they might reconsider the amount of money they are paying to their players.
+
+# Machine Learning Tools
+
+## Decision Trees
+
+Firstly, a brief description of what is a decision tree. It is a flow-chart-like structure in which each internal node represents a test on a feature and it makes predictions based on how a previous set of questions were answered.
+It is important to mention about the hyper-parameters
+
+Definitions:
+minsplit= minimum number of observations in a node before before a split
+cp= degree of complexity, the smaller the more branches
+maxdepth= maximum depth of any node of the final tree
+
+```{r}
+library(rpart)
+
+# Here we decide the hyper-parameters that we will choose
+control = rpart.control(minsplit = 30, maxdepth = 10, cp=0.01)
+```
+
+```{r}
+model = Type ~.
+dtFit <- rpart(model, data=auxtrain, method = "class", control = control)
+summary(dtFit)
+```
+
+For each node in the tree, the number of examples reaching the decision point is listed
+
+But it is better if we plot and visualize the computed decision tree.
+
+```{r}
+library(rpart.plot)
+rpart.plot(dtFit, digits=3)
+```
+
+It can be appreciated that each node shows the predict class, the predicted probability of each class and the percentage of observations in each node. Also it is important to mention that due to pruning other nodes have been removed.
+In our case, it took into consideration variables such as Value or Age in order to predict the overall of the player.
+
+In the case we are interested in computing a FULL decision tree, we must set the complexity paremter "cp" to  (or close to it) and also set the minimum number of observations in a node needed to split to the smallest value of 2.
+
+So we might modify the hyper parameters in order to see what would happen.
+
+```{r}
+control = rpart.control(minsplit = 40, maxdepth = 12, cp=0.001)
+dtFit <- rpart(model, data=auxtrain, method = "class", control = control)
+
+rpart.plot(dtFit, digits = 3)
+```
+
+And this is the way to obtain our full decision tree, however it is quite PC-demanding and even there could be some over plotting between the nodes.
+
+If we work with our bi variable classification data set and plot its decision tree. Also we might again tune the hyper parameters in order to see which one would be the optimal.
+
+```{r}
+control = rpart.control(minsplit = 25, maxdepth = 11, cp=0.01)
+model = Type ~.
+dtFit <- rpart(model, data=auxtrain_2c, method = "class", control = control)
+summary(dtFit)
+rpart.plot(dtFit, digits=3)
+
+```
+And if we are interested in the full decision tree..
+
+```{r}
+control = rpart.control(minsplit = 41, maxdepth = 12, cp=0.001)
+dtFit <- rpart(model, data=auxtrain_2c, method = "class", control = control)
+summary(dtFit)
+rpart.plot(dtFit, digits = 3)
+```
+
+Now lets do the predictions to plot the confusion matrix in our 2-class categorical variable data set.
+
+```{r}
+dtPred <- predict(dtFit, auxtest_2c, type = "class")
+dtProb <- predict(dtFit, auxtest_2c, type = "prob")
+threshold = 0.2 # A threshold of 0.2 its acceptable 
+dtPred = rep("Average", nrow(auxtest_2c))
+dtPred[which(dtProb[,2] > threshold)] = "Elite"
+CM = confusionMatrix(factor(dtPred), auxtest_2c$Type)$table
+CM
+confusionMatrix(factor(dtPred), auxtest_2c$Type)$overall[1]
+
+cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+cost
+
+
+```
+And again, we obtain an accuracy around 97% and we also obtained the cost, we can see that te cost in this case has decreased compare to the previous model, so we can affirm this model is way better.
+
+
+## Using Caret
+
+For our multiclass data set:
+
+```{r}
+library(caret)
+
+caret.fit <- train(model, 
+                   data = auxtrain, 
+                   method = "rpart",
+                   control=rpart.control(minsplit = 40, maxdepth = 12),
+                   trControl = trainControl(method = "cv", number = 5),
+                   tuneLength=10)
+caret.fit
+```
+And in order to visualize it.
+
+```{r}
+rpart.plot(caret.fit$finalModel)
+```
+
+And for our bi variable classification data set and in order to compute the CM...
+```{r}
+caret.fit <- train(model, 
+                   data = auxtrain_2c, 
+                   method = "rpart",
+                   control=rpart.control(minsplit = 40, maxdepth = 12),
+                   trControl = trainControl(method = "cv", number = 5),
+                   tuneLength=10)
+caret.fit
+rpart.plot(caret.fit$finalModel)
+```
+
+Predictions:
+
+```{r}
+dtProb <- predict(caret.fit, auxtest_2c, type = "prob")
+threshold = 0.2
+dtPred = rep("Average", nrow(auxtest_2c))
+dtPred[which(dtProb[,2] > threshold)] = "Elite"
+CM = confusionMatrix(factor(dtPred), auxtest_2c$Type)$table
+CM
+confusionMatrix(factor(dtPred), auxtest_2c$Type)$overall[1]
+
+cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+cost
+```
+We obtain a very similar accuracy and cost compared to the previous model not using Caret approach so they are basically equivalent methods.
+
+## Random Forest
+
+A brief description of random forests would be an algorithm consisting of many decision trees, which we had already done it previously.
+Definitions:
+ mtry: number of variables randomly sampled as candidates at each split
+ ntree: number of trees to grow
+ cutoff: cutoff probabilities in majority vote
+
+We start by computing the random forest training model
+```{r}
+rf.train <- randomForest(Type ~., data= auxtrain,ntree=200,mtry=9,cutoff=c(0.33,0.33, 0.33),importance=TRUE, do.trace=T)
+```
+
+Predict and compute the Confusion Matrix
+```{r}
+rf.pred <- predict(rf.train, newdata=auxtest)
+confusionMatrix(rf.pred, auxtest$Type)
+```
+
+And for the bivariable classification
+
+```{r}
+rf.train <- randomForest(Type ~., data= auxtrain_2c,ntree=200,mtry=8,cutoff=c(0.75,0.25),importance=TRUE, do.trace=T)
+
+rf.pred <- predict(rf.train, newdata=auxtest_2c)
+confusionMatrix(rf.pred, auxtest_2c$Type)
+
+```
+We obtained a 96% of accuracy and a kappa of 0.93. Also other aspects such as sensitivity and specificity are quite high, so at the moment all the models are quite reliable and efficient. Obviously a method such as random forest are almost all the times one of the best supevised learning tools despite of they are quite PC-resource demanding.
+
+Now it would be interesting to optimize the hyper-parameters in order to find even a better model, in order to do that:
+
+We must define a specific function called CostFunction:
+```{r}
+CostFunction <- function(data, lev = NULL, model = NULL) 
+{
+  y.pred = data$pred 
+  y.true = data$obs
+  CM = confusionMatrix(y.pred, y.true)$table
+  out = sum(as.vector(CM)*cost.unit)/sum(CM)
+  names(out) <- c("CostFunction")
+  out
+}
+
+
+```
+
+Now if we include this function in the Caret Control:
+
+```{r}
+ctrl <- trainControl(method = "cv", number = 5,
+                     classProbs = TRUE, 
+                     summaryFunction = CostFunction,
+                     verboseIter=T)
+
+```
+
+For instance, this would be the cost with the previous prediction
+```{r}
+CostFunction(data = data.frame(pred  = rf.pred, obs = auxtest_2c$Type))
+
+```
+
+Now we must train a Random Forest with a specific metric using Caret
+
+```{r}
+rf.train <- train(Type ~., 
+                  method = "rf", 
+                  data = auxtrain_2c,
+                  preProcess = c("center", "scale"),
+                  ntree = 200,
+                  cutoff=c(0.7,0.3),
+                  tuneGrid = expand.grid(mtry=c(4,5,6)), 
+                  metric = "CostFunction",
+                  maximize = F,
+                  trControl = ctrl)
+
+```
+
+And now for the variable importance
+```{r}
+rf_imp <- varImp(rf.train, scale = F)
+plot(rf_imp, scales = list(y = list(cex = .95)))
+
+```
+
+We obtain that there are 3 variables which are the most importants, which are in first place the Value, secondly the age of the player and in third place the release clause. The other variables are much less important compared to those 3 (especially Value, which is super important), so we could say that our model relies in an important part from those three variables, especially in the first one.
+
+```{r}
+rfPred = predict(rf.train, newdata=auxtest_2c)
+CM = confusionMatrix(factor(rfPred), auxtest_2c$Type)$table
+CM
+confusionMatrix(factor(rfPred), auxtest_2c$Type)$overall[1]
+cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+cost
+
+```
+In this time, we obtain an accuracy of 97% which is almost a perfect classification and a cost of 31 which is lower than the previous models, so at the moment random forests are probably one of the best tools to apply. However, it is important to mention that takes time in order to execute this method.
+
+It is important to mention that sometimes the hyper-parameters in the Machine Learning tools are less important that the threshold in the Bayes rule (however both of them are essential in order to obtain good models and predictions)
+
+```{r}
+threshold = 0.3
+rfProb = predict(rf.train, newdata=auxtest_2c, type="prob")
+rfPred = rep("Average", nrow(auxtest_2c))
+rfPred[which(rfProb[,2] > threshold)] = "Elite"
+CM = confusionMatrix(factor(rfPred), auxtest_2c$Type)$table
+CM
+
+cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+cost
+
+```
+We obtain a similar output as before.
+
+## Gradient Boosting
+
+We will use our bivariable classification data set
+
+```{r}
+
+GBM.train <- gbm(ifelse(auxtrain_2c$Type=="Average",0,1) ~., data=auxtrain_2c, distribution= "bernoulli",n.trees=250,shrinkage = 0.01,interaction.depth=2,n.minobsinnode = 8)
+
+```
+
+Lets compute the predictions
+
+```{r}
+threshold = 0.2
+gbmProb = predict(GBM.train, newdata=auxtest_2c, n.trees=250, type="response")
+gbmPred = rep("Average", nrow(auxtest_2c))
+gbmPred[which(gbmProb > threshold)] = "Elite"
+CM = confusionMatrix(factor(gbmPred), auxtest_2c$Type)$table
+CM
+confusionMatrix(factor(gbmPred), auxtest_2c$Type)$overall[1]
+cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+cost
+```
+In this case our accuracy is around 88%, which is less than the previous accuracies from the other models but is still a very good and reliable model, also we might take into consideration that the standard gradient boosting (gbm) was not quite pc-resource demanding, which is something that we must take into consideration in order to decide which would be our ideal model. About the cost, we can see that has increased to 43, so this is another indicator that this may not be the best supervised tool.
+At least in my case this model has less accuracy that logistic regression so we might think the other model is better than this one. However, both are excellent models in order to estimate.
+
+
+Maybe we could try now the xgboost with Caret, so firstly we will define a grid for the hyper-parameters.
+However this method is extremely demanding for the PC, so that is an important disadvantage.
+
+```{r}
+xgb_grid = expand.grid(
+  nrounds = c(500,1000),
+  eta = c(0.01, 0.001), # c(0.01,0.05,0.1)
+  max_depth = c(2, 4, 6),
+  gamma = 1,
+  colsample_bytree = c(0.2, 0.4),
+  min_child_weight = c(1,5),
+  subsample = 1
+)
+```
+
+Now its time to train
+```{r}
+xgb.train = train(Type ~ .,  data=auxtrain_2c,
+                  trControl = ctrl,
+                  metric="CostFunction",
+                  maximize = F,
+                  tuneGrid = xgb_grid,
+                  preProcess = c("center", "scale"),
+                  method = "xgbTree"
+)
+```
+
+Variable importance
+```{r}
+xgb_imp <- varImp(xgb.train, scale = F)
+plot(xgb_imp, scales = list(y = list(cex = .95)))
+```
+
+Once again, we can see that the variables Value, Release clause and age are the most important. However, it is true that now others variables such as Wage or Skill moves are not so insignificant as before, and now value variable has decreased its importance. This might be interesting because our model now it is not relying almost completely in just one variable.
+
+Prediction and cost
+```{r}
+threshold = 0.2
+xgbProb = predict(xgb.train, newdata=auxtest_2c, type="prob")
+xgbPred = rep("Average", nrow(auxtest_2c))
+xgbPred[which(xgbProb[,2] > threshold)] = "Elite"
+CM = confusionMatrix(factor(xgbPred), auxtest_2c$Type)$table
+CM
+confusionMatrix(factor(xgbPred), auxtest_2c$Type)$overall[1]
+cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+cost
+```
+It is important to mention that our accuracy has increased  to almost 0.96 so we can see that despite it is a very demanding method, we obtained a high accuracy and a good model. Also our cost is lower that with the gbm model, it is still worse that other models such as the random forest model but is still an excellent model.
+
+## Subsampling Techniques
+
+```{r}
+ctrl$sampling <- "up"
+
+rf.train <- train(Type ~., 
+                  method = "rf", 
+                  data = auxtrain_2c,
+                  preProcess = c("center", "scale"),
+                  ntree = 200,
+                  cutoff=c(0.7,0.3),
+                  tuneGrid = expand.grid(mtry=c(4,5,6)), 
+                  importance=TRUE,
+                  metric = "CostFunction",
+                  maximize = F,
+                  trControl = ctrl)
+```
+
+Prediction and cost
+```{r}
+threshold = 0.2
+rfProb = predict(rf.train, newdata=auxtest_2c, type="prob")
+rfPred = rep("Average", nrow(auxtest_2c))
+rfPred[which(rfProb[,2] > threshold)] = "Elite"
+CM = confusionMatrix(factor(rfPred), auxtest_2c$Type)$table
+confusionMatrix(factor(rfPred), auxtest_2c$Type)$overall[1]
+cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+cost 
+```
+We obtained an accuracy of almost 0.97 and a cost of almost 32, this model is also almost a perfect classification and have the same characteristics as the random forest model, so this one is also one of the best models that we have created at the moment.
+
+
+## Basic Ensembles
+
+Ensemble learning is based on combining the best classifiers and form a meta-classifier
+
+We will start by creating an ensemble for classification with the mode function for our bivariable classification data set.
+
+```{r}
+mode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+```
+Now lets see the accuracy an the CM
+
+```{r}
+ensemble.pred = apply(data.frame(lrPred,xgbPred, lrProb), 1, mode) 
+CM = confusionMatrix(factor(ensemble.pred), auxtest_2c$Type)$table
+CM
+confusionMatrix(factor(ensemble.pred), auxtest_2c$Type)$overall[1]
+cost = sum(as.vector(CM)*cost.unit)/sum(CM)
+cost
+```
+Once again, by just computing the confusion matrix we could notice that our model had very few mistakes and also by computing the accuracy we saw that it is around 95% of accuracy and the cost is around 37, it is not a bad model but compared with the previous ones (such as subsampling or random forest) it is not the best one either.
+Furthermore, ensemble models works better after adding more, better and diverse predictions. Also we can see that our cost remains similar.
+
+## Conclusion about Classification tools
+
+We had done most of the classification tools that we learned and after revising and looking again the outputs of each model (aspects such as the accuracy, costs, etc...) I saw that there are two models which stand out compared to the rest of the models, which are the random forest model and the subsampling tehcnics model, both of them obtained an accuracy around 0.97 and a cost between 31 and 32, so at least for those two parameters, are the best models, also it makes sense that both of them are quite pc-resource demanding methods so usually that implies the make better estimations.
+However we have studied other models such as gbm which are models that predicts very well and at the same time they are not so demanding for PCs, which is a point that it is important to mention. 
+Other methods such as decision trees that gives the user a graphical representation of the prediction are also quite important in order to understand deeply why the algorithm is predicting one thing instead of other.
+Almost all the models that I did are good models which are reliable and would be good in order to estimate, some of them are more focused on achieving a good prediction (having high accuracies and low costs) and others are more PC friendly by sacrificing making better predictions a little bit, but still been good models.
+There are some technics that I did not do because I consider they do not adapt to my data set, but it would be quite interesting to apply them with a distinct data set which the tool can be applied to.
+
+
+# REGRESSION
+
+Now we will just focus on numerical variables and the character variables will be transformed into categorical variables but with numerical values as levels.
+
+For that reason, I will create a new data set in which it only contains numerical variables using an auxiliar data set in order to do not lose the information of the original data set
+I have decided to split again the data set  but now instead of a 80%, it will be a 75% (the main reason is just to explore new possible results).
+
+```{r}
+aux = copy # We stored the original data set in which the variable Overall is numerical in order to use it now
+
+
+# Lets remove the non-numerical or categorical which will not be necessary and convert some variables into categoricals
+aux$Name = NULL
+aux$Nationality = NULL
+aux$Club = NULL
+aux$Work.Rate = NULL
+aux$Preferred.Foot = NULL # I am not interested on studying this categorical variable because it is insignificant for my model.
+
+# I will replace the values "TRUE" and "FALSE" to 0 and 1
+aux$Real.Face =  as.factor(aux$Real.Face)
+levels(aux$Real.Face)
+aux$Real.Face = factor(aux$Real.Face, levels = c("FALSE", "TRUE"), labels = c(0,1))
+
+
+# Now lets split the data into 75-25
+in_train <- createDataPartition(aux$Overall, p = 0.75, list = FALSE)  # 75% for training
+training <- aux[ in_train,]
+testing <- aux[-in_train,]
+
+nrow(training)
+nrow(testing)
+nrow(training) + nrow(testing) == nrow(dataset)
+
+
+```
+
+## Simple and multiple regression models
+
+
+We could start by watching the correlation with our main numerical variable
+```{r}
+library(leaps)
+
+corr_ <- sort(cor(training[,c(-8)])["Overall",], decreasing = T)
+corr=data.frame(corr_)
+ggplot(corr,aes(x = row.names(corr), y = corr_)) + 
+  geom_bar(stat = "identity", fill = "lightblue") + 
+  scale_x_discrete(limits= row.names(corr)) +
+  labs(x = "Predictors", y = "Overall", title = "Correlations") + 
+  theme(plot.title = element_text(hjust = 0, size = rel(1.5)),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Also we should see that the variable which Overall is the most correlated to is with Age.
+
+For that reason we are going to compare them in order to compute the R-squared
+```{r}
+linFit <- lm(Overall ~ Age, data= training)
+summary(linFit)
+
+```
+As we can see, the R-squared is around 0.4, which means is a weak-medium correlation ship, but it is significant.
+
+Diagnosis:
+
+```{r}
+par(mfrow=c(2,2))
+plot(linFit, pch=23 ,bg='orange',cex=2)
+
+```
+We can see that in the Normal Q-Q we obtained a proportionally direct relationship. Meanwhile in others such as Scale-Location or Residuals vs Fitted there is not a clear relation ship. Lastly, the Residuals vs Leverage we can see a slightly proportionally inverse relation ship between the leverage and the standarizad residuals.
+
+What would happen if we apply logs?
+```{r}
+linFit <- lm(log(Overall) ~ log(Age), data=training)
+summary(linFit)
+
+```
+We can appreciate that the R-squared increased a little bit.
+
+```{r}
+par(mfrow=c(2,2))
+plot(linFit, pch=23 ,bg='orange',cex=2)
+```
+We obtained almost the same result as before.
+
+Predictions:
+
+```{r}
+pr.simple = exp(predict(linFit, newdata=testing))
+cor(testing$Overall, pr.simple)^2
+```
+We obtained around 0.4 of correlation, not a bad model using just one regressor, but it could be much better
+
+## Multiple Regression
+
+```{r}
+linFit <- lm(Overall ~  Age + Value + Wage + International.Reputation + Weak.Foot + Skill.Moves + Height + Weight, data=training)
+summary(linFit)
+
+```
+We obtained almost a R2 of 65%, which could imply some variables are non-significant.
+
+Prediction
+```{r}
+pr.multiple = exp(predict(linFit, newdata=testing))
+cor(testing$Overall, pr.multiple)^2
+
+```
+
+
+## Model Selection
+
+```{r}
+library(leaps)
+exhaustive <- regsubsets(Overall ~ Age + Value + Wage + International.Reputation + Weak.Foot + Skill.Moves + Height + Weight, data=training)
+
+summary(exhaustive)
+```
+
+Now we plot it
+```{r}
+plot(summary(exhaustive)$bic, type = 'l')
+
+```
+
+Alternatively
+```{r}
+library(olsrr)
+
+model = Overall ~ Age + Value + Wage + International.Reputation + Weak.Foot + Skill.Moves + Height + Weight
+
+linFit <- lm(model, data=training)
+
+ols_step_all_possible(linFit) # All possible subset regressions: the number is exponential with p 
+
+```
+
+The best subset regression for each p: still exponential with p 
+```{r}
+ols_step_best_subset(linFit)
+```
+
+Other practical methods when dimension (p/n) is too high
+
+Forward based on AIC
+```{r}
+ols_step_forward_aic(linFit)
+
+```
+
+Backward AIC
+```{r}
+ols_step_backward_aic(linFit) #
+
+```
+
+stepwise AIC
+
+```{r}
+ols_step_both_aic(linFit) 
+```
+
+This model with 9 variables seems quite good, because it is simple and easy to execute them and it also explains the variability of the Overall variable
+
+```{r}
+linFit <- lm(Overall ~ Age + Value + Wage + International.Reputation + Weak.Foot + Skill.Moves + Height + Weight, data=training)
+summary(linFit)
+```
+We obtained a R2 close to 65%, which means it is a good model because it explains more or less in a reasonable way the variability of Overall.
+
+
+## Predictions
+```{r}
+predictions <- exp(predict(linFit, newdata=testing))
+cor(testing$Overall, predictions)^2
+
+```
+
+```{r}
+RMSE <- sqrt(mean((predictions - testing$Overall)^2))
+RMSE
+```
+It is an interesting result because it does not seems reasonable at all.
+
+
+## A benchmark
+
+We can compute the mean of the main numerical variable in the training set
+```{r}
+mean(training$Overall)
+
+```
+
+Which is equivalent to...
+```{r}
+benchFit <- lm(Overall ~ 1, data=training)
+benchFit$coefficients
+
+```
+
+```{r}
+predictions <- predict(benchFit, newdata=testing)
+RMSE <- sqrt(mean((predictions - testing$Overall)^2))
+RMSE
+```
+We can see that the benchmark model has a great performance in terms of noisy and difficult applications, but it is worse that multiple regression.  
+
+
+## Statistical Learning Tools
+
+Let’s use the caret package with CV
+```{r}
+ctrl <- trainControl(method = "repeatedcv", 
+                     number = 5, repeats = 1)
+
+```
+
+```{r}
+linFit <- lm(Overall ~ Age + Value + Wage + International.Reputation + Weak.Foot + Skill.Moves + Height + Weight, data=training)
+
+summary(linFit)
+```
+
+R2 is almost 64%, however some variables are probably not quite significant, we must try to still improve more our model.
+
+Consider the following model:
+It is important to mention that we could include the categorical variables such as Real.Face.
+I will not introduce some variables such as the preferred foot because I consider it does not sum anything to our model because it is insignificant if a player prefers to play with its right or left foot.
+
+```{r}
+
+ModelS = Overall ~ Real.Face + Age + Wage + International.Reputation*Value + Weak.Foot + Skill.Moves + Height + Weight
+
+
+ModelF = Overall ~ Age*Skill.Moves + Wage*International.Reputation + Value + Weak.Foot + Weight/Height^2
+
+
+```
+
+**NOTE:** Most of the models applied have the same plot and characteristics, even thought I have applied two distinct models in order to search some differences.
+
+## Linear Regression
+
+```{r}
+lm_tune <- train(ModelS, data = training, 
+                 method = "lm", 
+                 preProc=c('scale', 'center'),
+                 trControl = ctrl)
+lm_tune
+
+```
+
+We have obtained a RMSE of 4.86, a R squared of approximately 68.9% and a MAE of 3.81, it is reasonable results which indicates our model is good, but not the best one.
+
+From this point we will start creating a lot of models so it is a good idea to create a data frame which contains all the predictors.
+```{r}
+test_results <- data.frame(Overall = testing$Overall)
+```
+
+Now we must predict
+```{r}
+test_results$lm <- predict(lm_tune, testing)
+postResample(pred = test_results$lm,  obs = test_results$Overall)
+
+```
+
+```{r}
+qplot(test_results$lm, test_results$Overall) + 
+  labs(title="Linear Regression Observed VS Predicted", x="Predicted", y="Observed") +
+  lims(x = c(25, 120), y = c(25, 120)) +
+  geom_abline(intercept = 0, slope = 1, colour = "blue") +
+  theme_bw()
+
+```
+
+We can see that the result are quite good and there is a very low bias because most of the points are together in the straight line and also there is a very low variance because most of the points are together (except some at the most right part). Also the points observed and predicted forms something similar to a straight line (x = y) with some points scattered but still a very good model.
+So that is something good because at the end of the day we want to avoid  high bias and high variability because it affects our predictions and makes worse our model.
+
+Anyways, we could try with others models in order to compare and see if there is another one better
+
+## Overfitted linear regression
+
+We start by training our model
+```{r}
+alm_tune <- train(ModelS, data = training, 
+                  method = "lm", 
+                  preProc=c('scale', 'center'),
+                  trControl = ctrl)
+
+```
+
+And now predict
+```{r}
+test_results$alm <- predict(alm_tune, testing)
+postResample(pred = test_results$alm,  obs = test_results$Overall)
+
+```
+
+We obtained a Rsquared of 0.69 which improves our model but maybe it is not worth it to overfit our model just to improve a little bit our model. Overfitting can be problematic because it tries to adjust the model to the maximum of the initial dataset, however, in the case we want to predict new data, the model can become useless.
+
+Visualization
+```{r}
+qplot(test_results$alm, test_results$Overall) + 
+  labs(title="Linear Regression Observed VS Predicted", x="Predicted", y="Observed") +
+  lims(x = c(25,120), y = c(25,120)) +
+  geom_abline(intercept = 0, slope = 1, colour = "blue") +
+  theme_bw()
+
+```
+
+Visually it looks quite similar to the previous plot without the over fitted linear regression, so probably this model it is not the most recommended because it is more time demanding and PC demanding just to obtain practically the same result. However it might be taken into consideration that because there are too many data, we cannot actually see how the points are distributed.
+
+## Forward regression
+
+We start by training our model
+```{r}
+for_tune <- train(ModelS, data = training, 
+                  method = "leapForward", 
+                  preProc=c('scale', 'center'),
+                  tuneGrid = expand.grid(nvmax = 4:10),
+                  trControl = ctrl)
+
+for_tune
+
+```
+
+Plot it
+```{r}
+plot(for_tune)
+```
+
+
+```{r}
+coef(for_tune$finalModel, for_tune$bestTune$nvmax)
+
+```
+
+Predict
+```{r}
+test_results$frw <- predict(for_tune, testing)
+postResample(pred = test_results$frw,  obs = test_results$Overall)
+```
+
+Again we obtain a Rsquared of 0.69 which is a good model because it is almost 70% of the variability of Overall explained. However it is still identical to the previous ones (it is true that we are using the same model which I consider the model which estimates the best the response variable)
+
+Visualization
+```{r}
+qplot(test_results$frw, test_results$Overall) + 
+  labs(title="Forward Regression Observed VS Predicted", x="Predicted", y="Observed") +
+  lims(x = c(25,120), y = c(25,120)) +
+  geom_abline(intercept = 0, slope = 1, colour = "blue") +
+  theme_bw()
+
+```
+
+Once again, we obtain a plot quite similar to the previous ones, where the bias and the variability are very low and there are some outliers at the right.
+
+## Backward regression
+
+Again, we start training the model, but this time I will apply the modelF just to see if there is any important difference
+```{r}
+back_tune <- train(ModelF, data = training, 
+                   method = "leapBackward", 
+                   preProc=c('scale', 'center'),
+                   tuneGrid = expand.grid(nvmax = 4:10),
+                   trControl = ctrl)
+back_tune
+
+```
+
+```{r}
+plot(back_tune)
+
+```
+
+```{r}
+coef(back_tune$finalModel, back_tune$bestTune$nvmax)
+
+```
+
+We predict
+```{r}
+test_results$bw <- predict(back_tune, testing)
+postResample(pred = test_results$bw,  obs = test_results$Overall)
+
+```
+Now we obtained a 0.69 of Rsquared, so we might think it could be due to the model or due to the type of regression tool applied, for that reason I will plot it and after that I will apply this regression tool for ModelS
+
+
+Visualize
+```{r}
+qplot(test_results$bw, test_results$Overall) + 
+  labs(title="Backward Regression Observed VS Predicted", x="Predicted", y="Observed") +
+  lims(x = c(25, 130), y = c(25, 130)) +
+  geom_abline(intercept = 0, slope = 1, colour = "blue") +
+  theme_bw()
+```
+
+Lets do the same for ModelS just to see if its due to the model
+```{r}
+back_tune <- train(ModelS, data = training, 
+                   method = "leapBackward", 
+                   preProc=c('scale', 'center'),
+                   tuneGrid = expand.grid(nvmax = 4:10),
+                   trControl = ctrl)
+back_tune
+
+plot(back_tune)
+
+
+coef(back_tune$finalModel, back_tune$bestTune$nvmax)
+
+test_results$bw <- predict(back_tune, testing)
+postResample(pred = test_results$bw,  obs = test_results$Overall)
+```
+We also obtain 0.69 of Rsquared so we can affirm this increase in the Rsquared is due to the regression tool that we applied.
+
+# Ridge Regression
+
+```{r}
+# X matrix
+X = model.matrix(ModelF, data=training)[,-1]  # skip column of ones
+
+# y variable
+y = log(training$Overall)
+```
+
+Now we need to define a grid for the penalty hyper-parameter lambda
+```{r}
+grid = seq(0, .1, length = 100)  # a 100-size grid for lambda (rho in slides)
+```
+
+Estimate the ridge regression for all the penalties defined in the grid. The algorithm is extremely fast
+```{r}
+ridge.mod = glmnet(X, y, alpha=0, lambda=grid)  # alpha=0 for ridge regression
+```
+
+Remember ridge regression is shrinking only beta’s associated with variables, not β0
+
+For each of the 100 values of rho (lambda), there are 10 estimated parameters
+
+```{r}
+dim(coef(ridge.mod))
+coef(ridge.mod)
+```
+
+By plotting the solution path
+```{r}
+plot(ridge.mod, xvar="lambda")
+```
+
+```{r}
+ridge.cv = cv.glmnet(X, y, type.measure="mse", alpha=0)
+plot(ridge.cv)
+```
+The lowest point in the curve indicates the optimal lambda: the log value of lambda that best minimised the error in cross-validation
+
+So we are going to compute the optimal landa
+```{r}
+opt.lambda <- ridge.cv$lambda.min
+opt.lambda
+```
+We find out that the value of lambda should be 0.007
+
+In order to estimate the betas and lambdas, we could apply the following method (1se):
+
+```{r}
+lambda.index <- which(ridge.cv$lambda == ridge.cv$lambda.1se)
+beta.ridge <- ridge.cv$glmnet.fit$beta[, lambda.index]
+beta.ridge
+```
+
+Prediction
+
+```{r}
+X.test = model.matrix(ModelF, data=testing)[,-1]  # skip column of ones
+
+ridge.pred = predict(ridge.cv$glmnet.fit, s=opt.lambda, newx=X.test)
+```
+
+To visualize the performance, we can use the postResample function in caret
+```{r}
+y.test = log(testing$Overall)
+
+postResample(pred = ridge.pred,  obs = y.test)
+```
+We obtain 0.64 of Rsquared which is lower than previous models, the RMSE in 0.07 and the MAE 0.06 so not the best regression tool.
+
+And using Caret...
+
+```{r}
+library(elasticnet)
+# the grid for lambda
+ridge_grid <- expand.grid(lambda = seq(0, .1, length = 100))
+
+# train
+ridge_tune <- train(ModelF, data = training,
+                    method='ridge',
+                    preProc=c('scale','center'),
+                    tuneGrid = ridge_grid,
+                    trControl=ctrl)
+plot(ridge_tune)
+```
+
+```{r}
+# the best tune
+ridge_tune$bestTune
+```
+
+We obtain that the optimal value for lambda.
+
+```{r}
+# prediction
+test_results$ridge <- predict(ridge_tune, testing)
+
+postResample(pred = test_results$ridge,  obs = test_results$Overall)
+```
+Again, we obtain similar results and the rsquared once again is 0.69 which is decent.
+
+## The Lasso
+
+Lets compute it directly with Caret
+```{r}
+lasso_grid <- expand.grid(fraction = seq(.01, 1, length = 100))
+
+lasso_tune <- train(ModelS, data = training,
+                    method='lasso',
+                    preProc=c('scale','center'),
+                    tuneGrid = lasso_grid,
+                    trControl=ctrl)
+plot(lasso_tune)
+```
+
+```{r}
+lasso_tune$bestTune
+```
+
+```{r}
+test_results$lasso <- predict(lasso_tune, testing)
+postResample(pred = test_results$lasso,  obs = test_results$Overall)
+```
+Some insights that we could obtain from this tool is that we obtain a good model that it looks it is not neither under fitted or over fitted because the rsquared is approximately 0.7 so as previous models, is a good model and regression tool but we would like to improve a little bit more how the predictors explains our response variable (Rsquared)
+
+## Elastic Net
+
+Lets start by cheking the names for the hyper-parameters    
+```{r}
+modelLookup('glmnet')
+```
+
+```{r}
+elastic_grid = expand.grid(alpha = seq(0, .2, 0.01), lambda = seq(0, .1, 0.01))
+
+glmnet_tune <- train(ModelF, data = training,
+                     method='glmnet',
+                     preProc=c('scale','center'),
+                     tuneGrid = elastic_grid,
+                     trControl=ctrl)
+
+plot(glmnet_tune)
+```
+We can see in the graph that we obtain lines that are very close one to the other.
+
+```{r}
+glmnet_tune$bestTune
+
+```
+
+# Machine Learning Tools
+
+## KNN
+
+Lets have a look on the hyper parameters names
+```{r}
+modelLookup('kknn')
+```
+
+3 hyper-parameters: kmax, distance, kernel
+# kmax: number of neighbors considered
+# distance: parameter of Minkowski distance (p in Lp)
+# kernel: "rectangular" (standard unweighted knn), "triangular", "epanechnikov" (or beta(2,2)), "biweight" (or beta(3,3)), "tri- weight" (or beta(4,4)), "cos", "inv", "gaussian", "rank" and "optimal".
+
+Now we should train. Because Machine Learning models are non-linear we can use simpler formulas in order to make predictions
+```{r}
+library(kknn)
+library(igraph)
+
+knn_tune <- train(ModelS, 
+                  data = training,
+                  method = "kknn",   
+                  preProc=c('scale','center'),
+                  tuneGrid = data.frame(kmax=c(11,13,15,19,21),distance=2,kernel='optimal'),
+                  trControl = ctrl)
+plot(knn_tune)
+
+```
+This process is quite PC-resource demanding.
+
+
+```{r}
+test_results$knn <- predict(knn_tune, testing)
+
+postResample(pred = test_results$knn,  obs = test_results$Overall)
+```
+In this case our Rsquared has increased to around 0.8 which becomes a good model in order to predict, so at the moment is the model which predicts the best. Also the RMSE is 3.6 and the MAE 2.7.
+
+## Random Forest
+
+```{r}
+rf_tune <- train(ModelS, 
+                 data = training,
+                 method = "rf",
+                 preProc=c('scale','center'),
+                 trControl = ctrl,
+                 ntree = 100,
+                 tuneGrid = data.frame(mtry=c(1,3,5,7)),
+                 importance = TRUE)
+
+plot(rf_tune)
+```
+
+```{r}
+test_results$rf <- predict(rf_tune, testing)
+
+postResample(pred = test_results$rf,  obs = test_results$Overall)
+```
+We have obtained a Rsquared of 97.7% which is almost a perfect regression.
+It is important to take into consideration the possibility of over fitting too much the model. I do not necessarily mean that it is my case, but when we achieve so high coefficients that explains so well the variability of the data, sometimes it is recommended to suspect about a possible over fitting.
+
+At the moment the random forest tool is which explains and predicts our data in the best way.
+
+```{r}
+plot(varImp(rf_tune, scale = F), scales = list(y = list(cex = .95)))
+```
+As we can see, the most important variable is the Age, which is extremely significant compared to the other variables. For that reason we could say that the predictions are based on just one variable which is the most important predictor in order to predict our response variable.
+
+## Gradient Boosting
+
+```{r}
+xgb_tune <- train(ModelS, 
+                  data = training,
+                  method = "xgbTree",
+                  preProc=c('scale','center'),
+                  objective="reg:squarederror",
+                  trControl = ctrl,
+                  tuneGrid = expand.grid(nrounds = c(500,1000), max_depth = c(5,6,7), eta = c(0.01, 0.1, 1),
+                                         gamma = c(1, 2, 3), colsample_bytree = c(1, 2),
+                                         min_child_weight = c(1), subsample = c(0.2,0.5,0.8)))
+
+```
+
+```{r}
+test_results$xgb <- predict(xgb_tune, testing)
+
+postResample(pred = test_results$xgb,  obs = test_results$Overall)
+```
+
+
+## Ensemble
+
+Let’s summarize the MAE for all the tools
+```{r}
+apply(test_results[-1], 2, function(x) mean(abs(x - test_results$Overall)))
+```
+
+```{r}
+# Combination
+test_results$comb = (test_results$alm + test_results$knn + test_results$rf)/3
+
+postResample(pred = test_results$comb,  obs = test_results$Overall)
+```
+We obtain a R2 of 0.88 which is quite good compared to previous tools and also it does not seem like it is over fitted, so Ensemble is an interesting option in order to apply regression.
+
+
+## Prediction Interval
+
+**NOTE:** I decided to do not use this tool because I was having some troubles in order to execute it, so I decided to just write the code with # in order to show how it should be applied this method because I consider it is important to show the maximum number of tools as possible.
+```{r}
+# y = exp(test_results$Overall)
+# error = y-yhat
+# hist(error, col="lightblue")
+
+# We will use the first 100 players in order to compute the noise
+# noise = error[1:100]
+
+# Lets set a 90% confidence in the prediction intervals
+# lwr = yhat[101:length(yhat)] + quantile(noise,0.05, na.rm=T)
+# upr = yhat[101:length(yhat)] + quantile(noise,0.95, na.rm=T)
+
+# predictions = data.frame(real=y[101:length(y)], fit=yhat[101:length(yhat)], lwr=lwr, upr=upr)
+
+# predictions = predictions %>% mutate(out=factor(if_else(real<lwr | real>upr,1,0)))
+
+# We can compute how many observations are out of the intervals
+# mean(predictions$out==1)
+
+# We can finally plot it
+# ggplot(predictions, aes(x=fit, y=real))+
+  # geom_point(aes(color=out)) + theme(legend.position="none") +
+  # xlim(20000, 1000000) + ylim(20000, 1000000)+
+  # geom_ribbon(data=predictions,aes(ymin=lwr,ymax=upr),alpha=0.3) +
+  # labs(title = "Prediction intervals", x = "prediction",y="real price")
+```
+
+
+## Final Predictions
+
+```{r}
+yhat = exp(test_results$comb)
+
+head(yhat) 
+```
+
+```{r}
+hist(yhat, col="lightblue")
+```
+
+
+## Conclusion for Regression
+
+After applying the different regression tools and try two different models in order to see which one would bring us the most rsquared (and in general, the best regression model and tool), we tried different such as backwards or lineal regressions, most of them gave us an rsquared around 0.7. However, there were two tools that standed out compared to the rest of the tools employed, which were the random forests and the XGB tools, both of them game us an rsquared of 0.97, so it is clear that they were the most effective and reliable tools. 
+Furthermore, we created two different models (modelS and modelF) in order to apply the different tools into this two models. We even compared by applying one regression tool, which was Backwards Regression, in which we obtained the rsquared and the plot for both models and noticed that they were basically equal, there was almost not difference between choosing one or other model. 
+
+In this regression part we obtained created and obtained good models that can predict very well the data proposed by applying different regression tools.
+
+
+
+# Final Conclusion
+
+After completing this Homework, I had applied a lot of different supervised learning tools for classification and regression. We had work with bivariable classes and multinomial classes in classification and also to obtain optimal hyper parameters and tresholds. Classification has been very useful in order to understand the importance of how categorical variables can be predict depending on other variables without necessary been highly correlated. It was very interesting to focus on just one categorical variable and apply methods such as LDA or QDA which gives us useful information about the data set and in order to predict. Also probably the best classification tool for which I obtained the best model was either random forest or XGB boosting, those two was pretty good in order to obtain the best accuracy with the lowest cost as possible. We also did other classification tools such as GBM boosting which was more friendly in terms of Pc resources. 
+Basically, we applied different tools where each have its advantages and disadvantages, and depending on the context, one or other would be more useful.
+
+For regression it was also quite interesting to try to predict by training a model and testing it in order to obtain the best model that represent in the best way the data. Also for regression it was quite interesting to try to produce a own model (modelS or modelF) just by applying feature engineering  in order to find the correlations between variables in order to obtain the best model as possible and trying different tools in order to see aspects such as the Rsquared in order to see which one have the highest efficiency, in where we obtained models with a Rsquared around 0.7. But we also obtained by applying other regression tools models with a rsquared higher that 0.95, which is almost a perfect regression (some examples could be RF or XGB), which it is true that both are quite time and PC demanding but it is worth it in order to obtain a reliable model.
+
+We have applied common tools in classification and regression such as Random Forests or XGB, which can be approached in order to apply into classification or regression. In fact, probably random forests has been the best tool in terms of how good it is predicting and PC-resources demanding, because if we compared to XGB the output of both are quite similar but XGB took me about 15-20 minutes to be executed. However, specially thanks to this two tools I obtained a reliable model.
+
+It is important to mention the data set, which, as we can suppose it is essential to have a big data set in order to obtain realistic results, which I consider that has been my case, I choose a huge data set in order to predict and obtain the best possible models. For the previous home work that was about unsupervised learning tools I also choose this data set because I consider it is the enough diverse and big to can study it in different ways, by applying either supervised or unsupervised learning tools. As I recommended in my work, it would be interesting to apply supervised learning tools, and I finally did it.
+
+I decided to make most of the tools available because I wanted to learn as much as possible about supervised learning tools and in order to have the knowledge in order to be able to apply it by my self.
+
+
+
+
+
+
+
+
+
+
