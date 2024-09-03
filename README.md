@@ -1,37 +1,62 @@
-# Supervised Tools in Statistical Learning: FIFA23 Analysis
-Application of Supervised Learning Tools using a data set containing the stats of the different players in FIFA 23.
+# ⚽ Supervised Tools in Statistical Learning: FIFA23 Analysis
 
 **Author:** Diego Hernández Suárez
 
-## Description
-In this project, I worked with a dataset related to the stats of all players in FIFA23. I applied various classification and regression techniques using supervised learning to gain insights into the best and worst players and how to identify their characteristics based on their attributes. Initially, I preprocessed the dataset by transforming variables and changing formats to optimize it for analysis. Additionally, I employed several tools such as random forests, decision trees, logistic regression, KNN, among others, to analyze and understand the data.
+---
 
-## Dataset
-This dataset consists of various statistics of the players in the EA FIFA23 video game. Some of these variables include Name, Age, Height, Overall, Club, etc. These attributes are crucial for developing a precise and effective study.
+## 📝 Description
+This project involves the application of various supervised learning tools on a dataset containing statistics of players in FIFA 23. The goal was to gain insights into the best and worst players and to identify their characteristics based on their attributes. 
 
-## Preprocessing
-I applied different techniques to enhance the dataset, such as reducing its size by removing irrelevant variables, changing variable types (e.g., from string to numerical) through feature engineering, and using visualization tools to understand relevant aspects.
+### Key Activities:
+- **Dataset Preprocessing**: Initially, I optimized the dataset by transforming variables and changing formats to prepare it for in-depth analysis.
+- **Supervised Learning Techniques**: Applied a range of classification and regression methods, such as Random Forests, Decision Trees, Logistic Regression, KNN, among others, to analyze player stats and extract meaningful insights.
 
-## Processing
-#### Classification
-- LDA (Linear Discriminant Analysis)
-- QDA (Quadratic Discriminant Analysis)
-- Binary classification (Logistic Regression)
-- Penalized Logistic Regression
-- Cost-sensitive learning
-- Risk learning
-- Decision Trees
-- Random Forest
-- Gradient Boosting
-- Subsampling Techniques
+---
 
-#### Regression
-- Linear Regression
-- Overfitted Linear Regression
-- Forward and Backward Regression
-- Ridge and Lasso Regression
-- KNN (K-Nearest Neighbors)
-- Random Forest
+## 📊 Dataset
+The dataset includes a wide array of statistics for players featured in the EA FIFA23 video game. Some of the key attributes are:
+- **Name**
+- **Age**
+- **Height**
+- **Overall**
+- **Club**
+- And more...
+
+These attributes are fundamental for conducting a precise and effective study on player performance and characteristics.
+
+---
+
+## 🛠️ Preprocessing
+The preprocessing phase involved several techniques to refine and enhance the dataset:
+- **Size Reduction**: Removed irrelevant variables to streamline the analysis.
+- **Feature Engineering**: Converted variable types (e.g., from string to numerical) for better compatibility with analysis tools.
+- **Data Visualization**: Employed visualization tools to gain a better understanding of the dataset and identify key patterns and trends.
+
+---
+
+## 🧠 Processing
+
+### 📌 Classification Techniques:
+- **LDA (Linear Discriminant Analysis)**: Used for finding the linear combinations of features that best separate classes.
+- **QDA (Quadratic Discriminant Analysis)**: Like LDA but allows for quadratic decision boundaries.
+- **Binary Classification (Logistic Regression)**: Applied for binary outcomes such as predicting if a player is top-tier or not.
+- **Penalized Logistic Regression**: Used to handle overfitting by penalizing large coefficients.
+- **Cost-sensitive Learning**: Adjusted for different costs associated with misclassifications.
+- **Risk Learning**: Focused on minimizing the risk associated with predictions.
+- **Decision Trees**: Utilized for both classification and regression tasks, providing interpretable models.
+- **Random Forest**: An ensemble method used for improving the accuracy of predictions.
+- **Gradient Boosting**: A powerful technique for improving model accuracy by combining weak learners.
+- **Subsampling Techniques**: Employed to balance the dataset and improve model performance.
+
+### 📌 Regression Techniques:
+- **Linear Regression**: The basic model for predicting continuous outcomes.
+- **Overfitted Linear Regression**: Explored the impact of overfitting on model performance.
+- **Forward and Backward Regression**: Stepwise methods for feature selection.
+- **Ridge and Lasso Regression**: Regularization techniques to prevent overfitting by penalizing large coefficients.
+- **KNN (K-Nearest Neighbors)**: A non-parametric method used for both classification and regression.
+- **Random Forest**: Applied here as well to handle regression tasks by averaging multiple decision trees.
+
+---
 
 ## Required Packages
 To execute the code, the following R packages are required:
